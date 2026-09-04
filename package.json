@@ -1,0 +1,19 @@
+{
+    "name": "git-swarm",
+    "module": "index.ts",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "biome:format": "biome format",
+        "biome:lint": "biome lint",
+        "biome:check": "biome check",
+        "biome": "bun run --sequential biome:*"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "2.5.12",
+        "@types/bun": "latest"
+    },
+    "peerDependencies": {
+        "typescript": "^7"
+    }
+}
