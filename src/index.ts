@@ -7,7 +7,7 @@ const program = new Command();
 program
     .name("git-swarm")
     .description("Git subcommand to manage multiple repositories at once")
-    .version("0.8.0")
+    .version("0.0.1")
     .addCommand(statusCommand)
     .addCommand(fetchCommand);
 
