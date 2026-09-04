@@ -7,7 +7,7 @@ export class CliTable extends CliTable3 {
             style: {
                 head: ["bold", "underline", "gray"],
                 "padding-left": 0,
-                "padding-right": 1,
+                "padding-right": 0,
             },
             chars: {
                 top: "",
@@ -24,7 +24,7 @@ export class CliTable extends CliTable3 {
                 "mid-mid": "",
                 right: "",
                 "right-mid": "",
-                middle: " ",
+                middle: "  ",
             },
         });
     }
