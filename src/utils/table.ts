@@ -5,13 +5,26 @@ export class CliTable extends CliTable3 {
         super({
             ...options,
             style: {
-                head: ["bold"],
+                head: ["bold", "underline", "gray"],
+                "padding-left": 0,
+                "padding-right": 1,
             },
             chars: {
+                top: "",
+                "top-mid": "",
+                "top-left": "",
+                "top-right": "",
+                bottom: "",
+                "bottom-mid": "",
+                "bottom-left": "",
+                "bottom-right": "",
+                left: "",
+                "left-mid": "",
                 mid: "",
                 "mid-mid": "",
-                "left-mid": "",
+                right: "",
                 "right-mid": "",
+                middle: " ",
             },
         });
     }
