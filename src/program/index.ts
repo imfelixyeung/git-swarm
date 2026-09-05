@@ -21,4 +21,4 @@ program
     .addCommand(fetchCommand)
     .addCommand(findBranchCommand)
     .addCommand(pullCommand)
-    .addCommand(statusCommand)
+    .addCommand(statusCommand);
