@@ -42,13 +42,12 @@ jobs:
               with:
                   node-version: "24.x"
                   registry-url: "https://registry.npmjs.org"
+                  package-manager-cache: false
 
             - run: bun install --frozen-lockfile
 
             - name: Publish to npm
               run: npm stage publish --provenance --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     release:
         needs: publish
