@@ -28,7 +28,7 @@ export async function* findGitRepositories(
 ): AsyncGenerator<GitRepository> {
     for await (const path of findGitRepositoryPaths(root)) {
         yield {
-            path: { absolute: root, relative: relative(root, path) || "." },
+            path: { absolute: path, relative: relative(root, path) || "." },
             git: simpleGit(path, { baseDir: path }),
         };
     }
