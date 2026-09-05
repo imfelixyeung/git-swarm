@@ -22,6 +22,7 @@ const getFetchSummary = (result: FetchResult) => {
 };
 
 export const fetchCommand = new Command("fetch")
+    .description("Download objects and refs from another repository")
     .option(
         "-p, --prune",
         "prune remote-tracking branches no longer on the remote",

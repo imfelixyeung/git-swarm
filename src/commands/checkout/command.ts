@@ -4,6 +4,7 @@ import { catchError } from "@/utils/error";
 import { CliTable } from "@/utils/table";
 
 export const checkoutCommand = new Command("checkout")
+    .description("Switch branches")
     .argument("<branch>", "the branch to checkout")
     .action(async (branch: string) => {
         const root = process.cwd();

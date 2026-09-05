@@ -29,25 +29,27 @@ const getStatusSummary = (status: StatusResult) => {
     return c.gray("unknown");
 };
 
-export const statusCommand = new Command("status").action(async () => {
-    const root = process.cwd();
-    const table = new CliTable({
-        head: ["path", "branch", "tracking", "status"],
-    });
-    for await (const { path, git } of findGitRepositories(root)) {
-        const status = await git.status().catch(catchError);
-        if (status instanceof Error) {
-            if (process.env.NODE_ENV === "dev") {
-                table.push([path.relative, "---", status.message.trim()]);
+export const statusCommand = new Command("status")
+    .description("Show the working tree status")
+    .action(async () => {
+        const root = process.cwd();
+        const table = new CliTable({
+            head: ["path", "branch", "tracking", "status"],
+        });
+        for await (const { path, git } of findGitRepositories(root)) {
+            const status = await git.status().catch(catchError);
+            if (status instanceof Error) {
+                if (process.env.NODE_ENV === "dev") {
+                    table.push([path.relative, "---", status.message.trim()]);
+                }
+                continue;
             }
-            continue;
+            table.push([
+                path.relative,
+                status.current,
+                status.tracking,
+                getStatusSummary(status),
+            ]);
         }
-        table.push([
-            path.relative,
-            status.current,
-            status.tracking,
-            getStatusSummary(status),
-        ]);
-    }
-    console.log(table.toString());
-});
+        console.log(table.toString());
+    });
