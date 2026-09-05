@@ -1,6 +1,6 @@
 import { Command } from "commander";
-import { getProgramOptions } from "@/cli";
 import { forEachRepo } from "@/git/worker";
+import { getProgramOptions } from "@/program";
 import { catchError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";

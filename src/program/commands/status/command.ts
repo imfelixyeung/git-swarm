@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import type { StatusResult } from "simple-git";
-import { getProgramOptions } from "@/cli";
 import { forEachRepo } from "@/git/worker";
+import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
 import { catchError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
