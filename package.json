@@ -21,7 +21,8 @@
         "prepack": "bun run build",
         "typecheck": "tsc --noEmit",
         "biome": "biome check",
-        "ci": "biome ci"
+        "ci": "biome ci",
+        "test": "bun run test"
     },
     "devDependencies": {
         "@biomejs/biome": "2.5.12",
