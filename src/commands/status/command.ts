@@ -25,16 +25,11 @@ const getStatusSummary = (status: StatusResult) => {
     return c.gray("unknown");
 };
 
-const getBranchSummary = (status: StatusResult) => {
-    if (status.tracking) {
-        return `${status.current} -> ${status.tracking}`;
-    }
-    return status.current;
-};
-
 export const statusCommand = new Command("status").action(async () => {
     const root = process.cwd();
-    const table = new CliTable({ head: ["path", "branch", "status"] });
+    const table = new CliTable({
+        head: ["path", "branch", "tracking", "status"],
+    });
     for await (const { path, git } of findGitRepositories(root)) {
         const status = await git.status().catch(catchError);
         if (status instanceof Error) {
@@ -45,7 +40,8 @@ export const statusCommand = new Command("status").action(async () => {
         }
         table.push([
             path.relative,
-            getBranchSummary(status),
+            status.current,
+            status.tracking,
             getStatusSummary(status),
         ]);
     }
