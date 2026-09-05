@@ -21,17 +21,24 @@ const getFetchSummary = (result: FetchResult) => {
     return chunks.join(", ") || "already up-to-date";
 };
 
-export const fetchCommand = new Command("fetch").action(async () => {
-    const root = process.cwd();
-    const table = new CliTable({ head: ["path", "result"] });
-    for await (const { path, git } of findGitRepositories(root)) {
-        const result = await git.fetch().catch(catchError);
-        if (result instanceof Error) {
-            continue;
+export const fetchCommand = new Command("fetch")
+    .option(
+        "-p, --prune",
+        "prune remote-tracking branches no longer on the remote",
+    )
+    .action(async (options?: { prune?: boolean }) => {
+        const root = process.cwd();
+        const table = new CliTable({ head: ["path", "result"] });
+        for await (const { path, git } of findGitRepositories(root)) {
+            const result = await git
+                .fetch(options?.prune ? ["--prune"] : [])
+                .catch(catchError);
+            if (result instanceof Error) {
+                continue;
+            }
+
+            table.push([path.relative, getFetchSummary(result)]);
         }
 
-        table.push([path.relative, getFetchSummary(result)]);
-    }
-
-    console.log(table.toString());
-});
+        console.log(table.toString());
+    });
