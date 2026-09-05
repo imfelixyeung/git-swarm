@@ -1,8 +1,8 @@
 import { Command } from "commander";
 import type { FetchResult } from "simple-git";
-import { findGitRepositories } from "../../git/discover";
-import { catchError } from "../../utils/error";
-import { CliTable } from "../../utils/table";
+import { findGitRepositories } from "@/git/discover";
+import { catchError } from "@/utils/error";
+import { CliTable } from "@/utils/table";
 
 const getFetchSummary = (result: FetchResult) => {
     const chunks = [

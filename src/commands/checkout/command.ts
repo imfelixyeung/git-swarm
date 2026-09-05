@@ -1,7 +1,7 @@
 import { Command } from "commander";
-import { findGitRepositories } from "../../git/discover";
-import { catchError } from "../../utils/error";
-import { CliTable } from "../../utils/table";
+import { findGitRepositories } from "@/git/discover";
+import { catchError } from "@/utils/error";
+import { CliTable } from "@/utils/table";
 
 export const checkoutCommand = new Command("checkout")
     .argument("<branch>", "the branch to checkout")

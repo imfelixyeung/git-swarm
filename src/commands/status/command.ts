@@ -1,9 +1,9 @@
 import { Command } from "commander";
 import type { StatusResult } from "simple-git";
-import { findGitRepositories } from "../../git/discover";
-import { c } from "../../utils/colour";
-import { catchError } from "../../utils/error";
-import { CliTable } from "../../utils/table";
+import { findGitRepositories } from "@/git/discover";
+import { c } from "@/utils/colour";
+import { catchError } from "@/utils/error";
+import { CliTable } from "@/utils/table";
 
 const getStatusSummary = (status: StatusResult) => {
     if (status.modified.length) {
