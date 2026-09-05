@@ -1,7 +1,7 @@
 {
     "name": "@imfelixyeung/git-swarm",
     "description": "Manage multiple Git repositories with ease.",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "module": "src/cli.ts",
     "bin": {
         "git-swarm": "dist/cli.js"
