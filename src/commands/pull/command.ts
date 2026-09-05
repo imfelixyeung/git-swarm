@@ -1,7 +1,9 @@
 import { Command } from "commander";
 import type { PullResult } from "simple-git";
+import { getProgramOptions } from "@/cli";
+import { forEachRepo } from "@/git/worker";
 import { catchError } from "@/utils/error";
-import { forEachRepoWithSpinner } from "@/utils/spinner";
+import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
 const getPullSummary = (result: PullResult) => {
@@ -23,20 +25,25 @@ export const pullCommand = new Command("pull")
     .description("Fetch from and integrate with another repository")
     .argument("[remote]", "the remote to pull from")
     .argument("[branch]", "the branch to pull")
-    .action(async (remote?: string, branch?: string) => {
+    .action(async (remote: string | null, branch: string | null) => {
+        const programOptions = getProgramOptions();
         const root = process.cwd();
         const table = new CliTable({ head: ["path", "result"] });
-        await forEachRepoWithSpinner(
+        const results = await forEachRepo(
             root,
             "pulling repositories",
             async ({ path, git }) => {
-                const result = await git.pull(remote, branch).catch(catchError);
+                const result = await git
+                    .pull(remote ?? undefined, branch ?? undefined)
+                    .catch(catchError);
                 if (result instanceof Error) {
-                    return;
+                    return null;
                 }
 
-                table.push([path.relative, getPullSummary(result)]);
+                return [path.relative, getPullSummary(result)];
             },
+            programOptions,
         );
+        table.push(...filterNotNull(results));
         console.log(table.toString());
     });

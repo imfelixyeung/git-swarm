@@ -1,7 +1,9 @@
 import { Command } from "commander";
 import type { FetchResult } from "simple-git";
+import { getProgramOptions } from "@/cli";
+import { forEachRepo } from "@/git/worker";
 import { catchError } from "@/utils/error";
-import { forEachRepoWithSpinner } from "@/utils/spinner";
+import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
 const getFetchSummary = (result: FetchResult) => {
@@ -21,16 +23,19 @@ const getFetchSummary = (result: FetchResult) => {
     return chunks.join(", ") || "already up-to-date";
 };
 
+export type Options = { prune: boolean };
+
 export const fetchCommand = new Command("fetch")
     .description("Download objects and refs from another repository")
     .option(
         "-p, --prune",
         "prune remote-tracking branches no longer on the remote",
     )
-    .action(async (options?: { prune?: boolean }) => {
+    .action(async (options: Options) => {
+        const programOptions = getProgramOptions();
         const root = process.cwd();
         const table = new CliTable({ head: ["path", "result"] });
-        await forEachRepoWithSpinner(
+        const results = await forEachRepo(
             root,
             "fetching repositories",
             async ({ path, git }) => {
@@ -38,11 +43,13 @@ export const fetchCommand = new Command("fetch")
                     .fetch(options?.prune ? ["--prune"] : [])
                     .catch(catchError);
                 if (result instanceof Error) {
-                    return;
+                    return null;
                 }
 
-                table.push([path.relative, getFetchSummary(result)]);
+                return [path.relative, getFetchSummary(result)];
             },
+            programOptions,
         );
+        table.push(...filterNotNull(results));
         console.log(table.toString());
     });
