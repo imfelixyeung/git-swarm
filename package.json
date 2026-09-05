@@ -22,7 +22,7 @@
         "typecheck": "tsc --noEmit",
         "biome": "biome check",
         "ci": "biome ci",
-        "test": "bun run test"
+        "test": "bun test"
     },
     "devDependencies": {
         "@biomejs/biome": "2.5.12",
