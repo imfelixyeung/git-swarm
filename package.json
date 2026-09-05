@@ -1,13 +1,19 @@
 {
-    "name": "git-swarm",
+    "name": "@imfelixyeung/git-swarm",
+    "description": "Manage multiple Git repositories with ease.",
+    "version": "0.0.1",
     "module": "src/cli.ts",
     "bin": {
         "git-swarm": "dist/cli.js"
     },
+    "files": [
+        "dist"
+    ],
     "type": "module",
-    "private": true,
+    "private": false,
     "scripts": {
         "build": "bun build ./src/cli.ts --target=bun --outfile=dist/cli.js",
+        "prepack": "bun run build",
         "biome:format": "biome format",
         "biome:lint": "biome lint",
         "biome:check": "biome check",

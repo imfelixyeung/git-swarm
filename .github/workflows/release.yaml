@@ -1,0 +1,71 @@
+name: release
+
+on:
+    push:
+        tags:
+            - "v*"
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            - run: bun install --frozen-lockfile
+
+            - name: Build CLI
+              run: bun run build
+
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: cli
+                  path: dist/cli.js
+
+    publish:
+        needs: build
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: "24.x"
+                  registry-url: "https://registry.npmjs.org"
+
+            - run: bun install --frozen-lockfile
+
+            - name: Publish to npm
+              run: npm publish --provenance --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    release:
+        needs: publish
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: actions/download-artifact@v8
+              with:
+                  name: cli
+                  path: dist
+
+            - name: Create GitHub release
+              uses: softprops/action-gh-release@v3
+              with:
+                  tag_name: ${{ github.ref_name }}
+                  name: ${{ github.ref_name }}
+                  files: dist/cli.js
