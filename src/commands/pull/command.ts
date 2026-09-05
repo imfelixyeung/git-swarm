@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import type { PullResult } from "simple-git";
-import { findGitRepositories } from "@/git/discover";
 import { catchError } from "@/utils/error";
+import { forEachRepoWithSpinner } from "@/utils/spinner";
 import { CliTable } from "@/utils/table";
 
 const getPullSummary = (result: PullResult) => {
@@ -26,14 +26,17 @@ export const pullCommand = new Command("pull")
     .action(async (remote?: string, branch?: string) => {
         const root = process.cwd();
         const table = new CliTable({ head: ["path", "result"] });
-        for await (const { path, git } of findGitRepositories(root)) {
-            const result = await git.pull(remote, branch).catch(catchError);
-            if (result instanceof Error) {
-                continue;
-            }
+        await forEachRepoWithSpinner(
+            root,
+            "pulling repositories",
+            async ({ path, git }) => {
+                const result = await git.pull(remote, branch).catch(catchError);
+                if (result instanceof Error) {
+                    return;
+                }
 
-            table.push([path.relative, getPullSummary(result)]);
-        }
-
+                table.push([path.relative, getPullSummary(result)]);
+            },
+        );
         console.log(table.toString());
     });

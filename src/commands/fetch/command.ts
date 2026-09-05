@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import type { FetchResult } from "simple-git";
-import { findGitRepositories } from "@/git/discover";
 import { catchError } from "@/utils/error";
+import { forEachRepoWithSpinner } from "@/utils/spinner";
 import { CliTable } from "@/utils/table";
 
 const getFetchSummary = (result: FetchResult) => {
@@ -30,16 +30,19 @@ export const fetchCommand = new Command("fetch")
     .action(async (options?: { prune?: boolean }) => {
         const root = process.cwd();
         const table = new CliTable({ head: ["path", "result"] });
-        for await (const { path, git } of findGitRepositories(root)) {
-            const result = await git
-                .fetch(options?.prune ? ["--prune"] : [])
-                .catch(catchError);
-            if (result instanceof Error) {
-                continue;
-            }
+        await forEachRepoWithSpinner(
+            root,
+            "fetching repositories",
+            async ({ path, git }) => {
+                const result = await git
+                    .fetch(options?.prune ? ["--prune"] : [])
+                    .catch(catchError);
+                if (result instanceof Error) {
+                    return;
+                }
 
-            table.push([path.relative, getFetchSummary(result)]);
-        }
-
+                table.push([path.relative, getFetchSummary(result)]);
+            },
+        );
         console.log(table.toString());
     });

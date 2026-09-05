@@ -1,8 +1,8 @@
 import { Command } from "commander";
 import type { StatusResult } from "simple-git";
-import { findGitRepositories } from "@/git/discover";
 import { c } from "@/utils/colour";
 import { catchError } from "@/utils/error";
+import { forEachRepoWithSpinner } from "@/utils/spinner";
 import { CliTable } from "@/utils/table";
 
 const getStatusSummary = (status: StatusResult) => {
@@ -36,20 +36,28 @@ export const statusCommand = new Command("status")
         const table = new CliTable({
             head: ["path", "branch", "tracking", "status"],
         });
-        for await (const { path, git } of findGitRepositories(root)) {
-            const status = await git.status().catch(catchError);
-            if (status instanceof Error) {
-                if (process.env.NODE_ENV === "dev") {
-                    table.push([path.relative, "---", status.message.trim()]);
+        await forEachRepoWithSpinner(
+            root,
+            "checking repositories",
+            async ({ path, git }) => {
+                const status = await git.status().catch(catchError);
+                if (status instanceof Error) {
+                    if (process.env.NODE_ENV === "dev") {
+                        table.push([
+                            path.relative,
+                            "---",
+                            status.message.trim(),
+                        ]);
+                    }
+                    return;
                 }
-                continue;
-            }
-            table.push([
-                path.relative,
-                status.current,
-                status.tracking,
-                getStatusSummary(status),
-            ]);
-        }
+                table.push([
+                    path.relative,
+                    status.current,
+                    status.tracking,
+                    getStatusSummary(status),
+                ]);
+            },
+        );
         console.log(table.toString());
     });

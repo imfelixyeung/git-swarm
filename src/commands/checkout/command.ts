@@ -1,6 +1,6 @@
 import { Command } from "commander";
-import { findGitRepositories } from "@/git/discover";
 import { catchError } from "@/utils/error";
+import { forEachRepoWithSpinner } from "@/utils/spinner";
 import { CliTable } from "@/utils/table";
 
 export const checkoutCommand = new Command("checkout")
@@ -9,14 +9,17 @@ export const checkoutCommand = new Command("checkout")
     .action(async (branch: string) => {
         const root = process.cwd();
         const table = new CliTable({ head: ["path", "result"] });
-        for await (const { path, git } of findGitRepositories(root)) {
-            const result = await git.checkout(branch).catch(catchError);
-            if (result instanceof Error) {
-                continue;
-            }
+        await forEachRepoWithSpinner(
+            root,
+            `checking out ${branch}`,
+            async ({ path, git }) => {
+                const result = await git.checkout(branch).catch(catchError);
+                if (result instanceof Error) {
+                    return;
+                }
 
-            table.push([path.relative, branch]);
-        }
-
+                table.push([path.relative, branch]);
+            },
+        );
         console.log(table.toString());
     });
