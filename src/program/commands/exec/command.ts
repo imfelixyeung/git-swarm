@@ -52,7 +52,7 @@ const printLines = (prefix: string, lines: string[]) => {
 
 export const execCommand = new Command("exec")
     .description("Run a command in every repository")
-    .option("--verbose", "show compact output")
+    .option("-v, --verbose", "use compact output format")
     .passThroughOptions()
     .argument("<command...>", "the command and arguments to run")
     .action(async (command: string[], options: ExecOptions) => {
