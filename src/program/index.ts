@@ -5,6 +5,7 @@ import { checkoutCommand } from "./commands/checkout/command";
 import { execCommand } from "./commands/exec/command";
 import { fetchCommand } from "./commands/fetch/command";
 import { findBranchCommand } from "./commands/find-branch/command";
+import { listCommand } from "./commands/list/command";
 import { pullCommand } from "./commands/pull/command";
 import { statusCommand } from "./commands/status/command";
 import { type ParallelOption, parallelOption } from "./options/parallel";
@@ -22,5 +23,6 @@ program
     .addCommand(execCommand)
     .addCommand(fetchCommand)
     .addCommand(findBranchCommand)
+    .addCommand(listCommand)
     .addCommand(pullCommand)
     .addCommand(statusCommand);
