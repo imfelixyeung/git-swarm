@@ -3,6 +3,7 @@ import { Command } from "commander";
 import packageJson from "@/package.json";
 import { checkoutCommand } from "./commands/checkout/command";
 import { fetchCommand } from "./commands/fetch/command";
+import { findBranchCommand } from "./commands/find-branch/command";
 import { pullCommand } from "./commands/pull/command";
 import { statusCommand } from "./commands/status/command";
 import { type ParallelOption, parallelOption } from "./options/parallel";
@@ -16,7 +17,8 @@ program
     .version(packageJson.version)
     .enablePositionalOptions()
     .addOption(parallelOption)
-    .addCommand(statusCommand)
+    .addCommand(checkoutCommand)
     .addCommand(fetchCommand)
+    .addCommand(findBranchCommand)
     .addCommand(pullCommand)
-    .addCommand(checkoutCommand);
+    .addCommand(statusCommand);
