@@ -18,10 +18,9 @@
     "scripts": {
         "build": "bun build ./src/cli.ts --target=bun --outfile=dist/cli.js",
         "prepack": "bun run build",
-        "biome:format": "biome format",
-        "biome:lint": "biome lint",
-        "biome:check": "biome check",
-        "biome": "bun run --sequential biome:*"
+        "typecheck": "tsc --noEmit",
+        "biome": "biome check",
+        "ci": "biome ci"
     },
     "devDependencies": {
         "@biomejs/biome": "2.5.12",
