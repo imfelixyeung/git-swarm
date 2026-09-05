@@ -14,12 +14,12 @@ const getStatusSummary = (status: StatusResult) => {
         return c.bold(`↑ ${status.ahead} ↓ ${status.behind}`);
     }
 
-    if (status.isClean()) {
-        return c.green("clean");
-    }
-
     if (status.detached) {
         return c.red("detached");
+    }
+
+    if (status.isClean()) {
+        return c.green("clean");
     }
 
     return c.gray("unknown");
