@@ -22,6 +22,10 @@ const getStatusSummary = (status: StatusResult) => {
         return c.green("clean");
     }
 
+    if (status.not_added.length) {
+        return c.red(`${status.not_added.length} untracked item(s)`);
+    }
+
     return c.gray("unknown");
 };
 
