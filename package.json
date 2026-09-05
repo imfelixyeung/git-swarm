@@ -2,6 +2,10 @@
     "name": "@imfelixyeung/git-swarm",
     "description": "Manage multiple Git repositories with ease.",
     "version": "0.0.2",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/imfelixyeung/git-swarm"
+    },
     "module": "src/cli.ts",
     "bin": {
         "git-swarm": "dist/cli.js"
