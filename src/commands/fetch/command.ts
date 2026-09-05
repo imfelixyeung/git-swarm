@@ -7,14 +7,18 @@ import { CliTable } from "../../utils/table";
 const getFetchSummary = (result: FetchResult) => {
     const chunks = [
         result.branches.length
-            ? `${result.branches.length} new branches`
+            ? `${result.branches.length} new branch(s)`
             : null,
-        result.tags.length ? `${result.tags.length} new tags` : null,
-        result.updated.length ? `updated ${result.tags.length} branches` : null,
-        result.deleted.length ? `deleted ${result.tags.length} branches` : null,
+        result.tags.length ? `${result.tags.length} new tag(s)` : null,
+        result.updated.length
+            ? `${result.updated.length} branch(s) updated`
+            : null,
+        result.deleted.length
+            ? `${result.deleted.length} branch(s) deleted`
+            : null,
     ].filter(Boolean);
 
-    return chunks.join(" | ") || "already up-to-date";
+    return chunks.join(", ") || "already up-to-date";
 };
 
 export const fetchCommand = new Command("fetch").action(async () => {
