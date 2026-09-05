@@ -1,5 +1,5 @@
+import { glob } from "node:fs/promises";
 import { dirname, relative } from "node:path";
-import { Glob } from "bun";
 import simpleGit, { type SimpleGit } from "simple-git";
 
 export type GitRepository = {
@@ -11,13 +11,8 @@ export type GitRepository = {
 };
 
 export async function* findGitRepositoryPaths(root: string) {
-    const glob = new Glob("**/.git");
-
-    for await (const path of glob.scan({
+    for await (const path of glob("**/.git", {
         cwd: root,
-        dot: true,
-        absolute: true,
-        onlyFiles: false,
     })) {
         yield dirname(path);
     }
