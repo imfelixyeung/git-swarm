@@ -17,6 +17,7 @@
     "private": false,
     "scripts": {
         "build": "bun build ./src/cli.ts --target=bun --outfile=dist/cli.js",
+        "dev": "bun run build --watch",
         "prepack": "bun run build",
         "typecheck": "tsc --noEmit",
         "biome": "biome check",
