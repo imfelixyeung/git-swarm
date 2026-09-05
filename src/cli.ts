@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { Command } from "commander";
 import { checkoutCommand } from "./commands/checkout/command";
 import { fetchCommand } from "./commands/fetch/command";

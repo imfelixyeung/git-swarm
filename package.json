@@ -1,9 +1,13 @@
 {
     "name": "git-swarm",
-    "module": "index.ts",
+    "module": "src/cli.ts",
+    "bin": {
+        "git-swarm": "dist/cli.js"
+    },
     "type": "module",
     "private": true,
     "scripts": {
+        "build": "bun build ./src/cli.ts --target=bun --outfile=dist/cli.js",
         "biome:format": "biome format",
         "biome:lint": "biome lint",
         "biome:check": "biome check",
