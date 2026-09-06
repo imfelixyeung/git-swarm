@@ -1,0 +1,65 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+        "repositories": {
+            "anyOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "options": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "parallel": {
+                            "default": 1,
+                            "anyOf": [
+                                {
+                                    "type": "number",
+                                    "minimum": 0
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        },
+                        "where": {
+                            "default": "",
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "parallel",
+                        "where"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        }
+    },
+    "additionalProperties": false
+}

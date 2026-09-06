@@ -10,7 +10,7 @@ const defaults = {
     },
 };
 
-const configSchema = z.object({
+export const configSchema = z.object({
     repositories: z
         .array(
             z.object({
