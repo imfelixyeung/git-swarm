@@ -36,10 +36,11 @@ const getStatRow = (path: string, summary: DiffResult) => [
 ];
 
 export const diffCommand = new Command("diff")
-    .description("Show file changes across all repositories")
+    .description("Show changes across all repositories")
+    .argument("[rev]")
     .option("--cached", "show changes staged in the index")
     .option("--stat", "show the diff summary for each repository")
-    .action(async (options: DiffOptions) => {
+    .action(async (rev: string | null, options: DiffOptions) => {
         const programOptions = getProgramOptions();
         const root = process.cwd();
         const diffArgs = options.cached ? ["--cached"] : [];
@@ -48,7 +49,7 @@ export const diffCommand = new Command("diff")
             "diffing repositories",
             async ({ path, git }) => {
                 const summary = await git
-                    .diffSummary(diffArgs)
+                    .diffSummary(rev ? [rev, ...diffArgs] : diffArgs)
                     .catch(catchError);
                 if (summary instanceof Error) {
                     return null;
