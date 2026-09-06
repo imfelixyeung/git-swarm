@@ -1,7 +1,7 @@
 {
     "name": "@imfelixyeung/git-swarm",
     "description": "Manage multiple Git repositories with ease.",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "repository": {
         "type": "git",
         "url": "https://github.com/imfelixyeung/git-swarm"
