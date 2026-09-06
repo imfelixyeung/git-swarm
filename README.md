@@ -42,6 +42,7 @@ git swarm checkout feature/my-branch
 | `pull [remote] [branch]` | Pull from remotes across all repos |
 | `fetch [--prune]` | Fetch from remotes across all repos |
 | `checkout <branch>` | Switch to a branch across all repos |
+| `diff [--cached] [--stat]` | Show file changes across all repos |
 | `grep <pattern>` | Run `git grep` across all repos |
 | `find-branch <branch>` | Search all repos for a branch by name |
 | `remote` | List remotes for each repo |

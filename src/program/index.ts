@@ -3,6 +3,7 @@ import { Command } from "commander";
 import packageJson from "@/package.json";
 import { checkoutCommand } from "./commands/checkout/command";
 import { configCommand } from "./commands/config/command";
+import { diffCommand } from "./commands/diff/command";
 import { execCommand } from "./commands/exec/command";
 import { fetchCommand } from "./commands/fetch/command";
 import { findBranchCommand } from "./commands/find-branch/command";
@@ -28,6 +29,7 @@ program
     .addOption(whereOption)
     .addCommand(checkoutCommand)
     .addCommand(configCommand)
+    .addCommand(diffCommand)
     .addCommand(execCommand)
     .addCommand(fetchCommand)
     .addCommand(findBranchCommand)
