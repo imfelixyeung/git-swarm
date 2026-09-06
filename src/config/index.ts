@@ -13,7 +13,7 @@ const defaults = {
 };
 
 export const configSchema = z.object({
-    $schema: z.string().default(defaults.$schema).nullish(),
+    $schema: z.string().nullish(),
     repositories: z
         .array(
             z.object({
