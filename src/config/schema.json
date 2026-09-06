@@ -2,6 +2,17 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
+        "$schema": {
+            "anyOf": [
+                {
+                    "default": "https://raw.githubusercontent.com/imfelixyeung/git-swarm/v0.1.0/src/config/schema.json",
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
         "repositories": {
             "anyOf": [
                 {

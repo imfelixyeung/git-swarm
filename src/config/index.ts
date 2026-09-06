@@ -1,9 +1,11 @@
 import { YAML } from "bun";
 import { z } from "zod";
+import packageJson from "@/package.json";
 
 export const CONFIG_FILE_NAME = "git-swarm.config.yaml";
 
 const defaults = {
+    $schema: `https://raw.githubusercontent.com/imfelixyeung/git-swarm/v${packageJson.version}/src/config/schema.json`,
     options: {
         parallel: 1,
         where: "",
@@ -11,6 +13,7 @@ const defaults = {
 };
 
 export const configSchema = z.object({
+    $schema: z.string().default(defaults.$schema).nullish(),
     repositories: z
         .array(
             z.object({
@@ -34,6 +37,7 @@ export type GitSwarmConfig = z.infer<typeof configSchema>;
 defaults satisfies GitSwarmConfig;
 
 export const defaultConfig = {
+    $schema: defaults.$schema,
     options: {
         parallel: defaults.options.parallel,
         where: defaults.options.where,
