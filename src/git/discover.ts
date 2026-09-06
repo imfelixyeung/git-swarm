@@ -1,6 +1,7 @@
 import { dirname, relative } from "node:path";
 import simpleGit, { type SimpleGit } from "simple-git";
 import { glob } from "tinyglobby";
+import { type GitRepoFilters, repoMatchesFilter } from "./filter";
 
 export type GitRepository = {
     path: {
@@ -26,11 +27,18 @@ export async function* findGitRepositoryPaths(root: string) {
 
 export async function* findGitRepositories(
     root: string,
+    filter: GitRepoFilters,
 ): AsyncGenerator<GitRepository> {
     for await (const path of findGitRepositoryPaths(root)) {
-        yield {
+        const repo = {
             path: { absolute: path, relative: relative(root, path) || "." },
             git: simpleGit(path, { baseDir: path }),
         };
+
+        if (!(await repoMatchesFilter(repo, filter))) {
+            continue;
+        }
+
+        yield repo;
     }
 }
