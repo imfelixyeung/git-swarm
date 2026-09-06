@@ -16,8 +16,6 @@ jobs:
             contents: write
             pull-requests: write
             id-token: write
-        env:
-            NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         steps:
             - uses: actions/checkout@v7
               with:
