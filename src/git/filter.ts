@@ -1,18 +1,28 @@
 import z from "zod";
 import { catchError } from "@/utils/error";
 import type { GitRepository } from "./discover";
+import { parseGitRemoteRefs } from "./remote";
+
+const oneOrMoreStringsFilterSchema = z
+    .union([z.string(), z.array(z.string())])
+    .transform((v) => (Array.isArray(v) ? v : [v]))
+    .nullish()
+    .default(null);
+
+const booleanFilterSchema = z
+    .enum(["true", "false"])
+    .transform((v) => v === "true")
+    .nullish()
+    .default(null);
 
 const repoFiltersSchema = z.object({
-    branch: z
-        .union([z.string(), z.array(z.string())])
-        .transform((v) => (Array.isArray(v) ? v : [v]))
-        .nullish()
-        .default(null),
-    clean: z
-        .enum(["true", "false"])
-        .transform((v) => v === "true")
-        .nullish()
-        .default(null),
+    branch: oneOrMoreStringsFilterSchema,
+    clean: booleanFilterSchema,
+    "remote.ref": oneOrMoreStringsFilterSchema,
+    "remote.provider": oneOrMoreStringsFilterSchema,
+    "remote.owner": oneOrMoreStringsFilterSchema,
+    "remote.host": oneOrMoreStringsFilterSchema,
+    "remote.name": oneOrMoreStringsFilterSchema,
 });
 
 export type GitRepoFilters = z.infer<typeof repoFiltersSchema>;
@@ -44,6 +54,14 @@ export const parseQueryString = (query: string) => {
     return result.data;
 };
 
+const oneStringMatches = (needles: string[], haystacks: string[]) => {
+    return Boolean(
+        needles.find((needle) =>
+            haystacks.find((haystack) => haystack === needle),
+        ),
+    );
+};
+
 export const repoMatchesFilter = async (
     repo: GitRepository,
     filters: GitRepoFilters,
@@ -53,8 +71,11 @@ export const repoMatchesFilter = async (
         return false;
     }
 
+    const rawRemotes = await repo.git.getRemotes(true);
+    const remotes = parseGitRemoteRefs(rawRemotes);
+
     if (filters.branch !== null && status.current) {
-        if (!filters.branch.includes(status.current)) {
+        if (!oneStringMatches(filters.branch, [status.current])) {
             return false;
         }
     }
@@ -62,6 +83,25 @@ export const repoMatchesFilter = async (
         const isClean = status.isClean();
         if (filters.clean !== isClean) {
             return false;
+        }
+    }
+
+    const remoteStringFilters = [
+        "ref",
+        "provider",
+        "owner",
+        "host",
+        "name",
+    ] as const;
+
+    for (const remoteKey of remoteStringFilters) {
+        const filterKey = `remote.${remoteKey}` as const;
+        if (filters[filterKey] !== null) {
+            const needles = filters[filterKey];
+            const haystacks = remotes.map((r) => r[remoteKey]);
+            if (!oneStringMatches(needles, haystacks)) {
+                return false;
+            }
         }
     }
 
