@@ -6,14 +6,12 @@ import { parseGitRemoteRefs } from "./remote";
 const oneOrMoreStringsFilterSchema = z
     .union([z.string(), z.array(z.string())])
     .transform((v) => (Array.isArray(v) ? v : [v]))
-    .nullish()
-    .default(null);
+    .nullish();
 
 const booleanFilterSchema = z
     .enum(["true", "false"])
     .transform((v) => v === "true")
-    .nullish()
-    .default(null);
+    .nullish();
 
 const repoFiltersSchema = z.object({
     branch: oneOrMoreStringsFilterSchema,
@@ -62,6 +60,10 @@ const oneStringMatches = (needles: string[], haystacks: string[]) => {
     );
 };
 
+const isNullish = (value: unknown): value is null | undefined => {
+    return value === null || value === undefined;
+};
+
 export const repoMatchesFilter = async (
     repo: GitRepository,
     filters: GitRepoFilters,
@@ -74,12 +76,12 @@ export const repoMatchesFilter = async (
     const rawRemotes = await repo.git.getRemotes(true);
     const remotes = parseGitRemoteRefs(rawRemotes);
 
-    if (filters.branch !== null && status.current) {
+    if (!isNullish(filters.branch) && status.current) {
         if (!oneStringMatches(filters.branch, [status.current])) {
             return false;
         }
     }
-    if (filters.clean !== null) {
+    if (!isNullish(filters.clean)) {
         const isClean = status.isClean();
         if (filters.clean !== isClean) {
             return false;
@@ -96,7 +98,7 @@ export const repoMatchesFilter = async (
 
     for (const remoteKey of remoteStringFilters) {
         const filterKey = `remote.${remoteKey}` as const;
-        if (filters[filterKey] !== null) {
+        if (!isNullish(filters[filterKey])) {
             const needles = filters[filterKey];
             const haystacks = remotes.map((r) => r[remoteKey]);
             if (!oneStringMatches(needles, haystacks)) {
