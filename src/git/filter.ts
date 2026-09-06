@@ -1,5 +1,7 @@
 import z from "zod";
+import { arrayHasOverlaps } from "@/utils/array-has-overlaps";
 import { catchError } from "@/utils/error";
+import { isNullish } from "@/utils/is-nullish";
 import type { GitRepository } from "./discover";
 import { parseGitRemoteRefs } from "./remote";
 
@@ -52,18 +54,6 @@ export const parseQueryString = (query: string) => {
     return result.data;
 };
 
-const oneStringMatches = (needles: string[], haystacks: string[]) => {
-    return Boolean(
-        needles.find((needle) =>
-            haystacks.find((haystack) => haystack === needle),
-        ),
-    );
-};
-
-const isNullish = (value: unknown): value is null | undefined => {
-    return value === null || value === undefined;
-};
-
 export const repoMatchesFilter = async (
     repo: GitRepository,
     filters: GitRepoFilters,
@@ -77,7 +67,7 @@ export const repoMatchesFilter = async (
     const remotes = parseGitRemoteRefs(rawRemotes);
 
     if (!isNullish(filters.branch) && status.current) {
-        if (!oneStringMatches(filters.branch, [status.current])) {
+        if (!arrayHasOverlaps(filters.branch, [status.current])) {
             return false;
         }
     }
@@ -101,7 +91,7 @@ export const repoMatchesFilter = async (
         if (!isNullish(filters[filterKey])) {
             const needles = filters[filterKey];
             const haystacks = remotes.map((r) => r[remoteKey]);
-            if (!oneStringMatches(needles, haystacks)) {
+            if (!arrayHasOverlaps(needles, haystacks)) {
                 return false;
             }
         }
