@@ -8,6 +8,7 @@ import { findBranchCommand } from "./commands/find-branch/command";
 import { grepCommand } from "./commands/grep/command";
 import { listCommand } from "./commands/list/command";
 import { pullCommand } from "./commands/pull/command";
+import { remoteCommand } from "./commands/remote/command";
 import { statusCommand } from "./commands/status/command";
 import { type ParallelOption, parallelOption } from "./options/parallel";
 import { type WhereOption, whereOption } from "./options/where";
@@ -31,4 +32,5 @@ program
     .addCommand(grepCommand)
     .addCommand(listCommand)
     .addCommand(pullCommand)
+    .addCommand(remoteCommand)
     .addCommand(statusCommand);
