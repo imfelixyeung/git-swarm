@@ -22,7 +22,8 @@
         "typecheck": "tsc --noEmit",
         "biome": "biome check",
         "ci": "biome ci",
-        "test": "bun test"
+        "test": "bun test",
+        "config-json-schema:update": "bun run src/scripts/make-config-json-schema.ts > src/config/schema.json"
     },
     "devDependencies": {
         "@biomejs/biome": "2.5.12",
@@ -34,6 +35,7 @@
     "dependencies": {
         "cli-table3": "^0.6.5",
         "commander": "^15.0.0",
+        "dedent": "^1.7.2",
         "p-limit": "^7.3.2",
         "picocolors": "^1.1.1",
         "simple-git": "^3.36.0",

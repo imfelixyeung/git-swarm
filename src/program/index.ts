@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import packageJson from "@/package.json";
 import { checkoutCommand } from "./commands/checkout/command";
+import { configCommand } from "./commands/config/command";
 import { execCommand } from "./commands/exec/command";
 import { fetchCommand } from "./commands/fetch/command";
 import { findBranchCommand } from "./commands/find-branch/command";
@@ -26,6 +27,7 @@ program
     .addOption(parallelOption)
     .addOption(whereOption)
     .addCommand(checkoutCommand)
+    .addCommand(configCommand)
     .addCommand(execCommand)
     .addCommand(fetchCommand)
     .addCommand(findBranchCommand)

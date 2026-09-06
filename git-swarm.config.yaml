@@ -1,0 +1,5 @@
+options:
+    parallel: 1
+    where: ""
+repositories:
+    - path: "."
