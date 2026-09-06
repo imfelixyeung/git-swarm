@@ -6,6 +6,7 @@ export type GitProtocol = "https" | "http" | "ssh" | "file";
 
 export interface ParsedGitUrl {
     ref: string;
+    direction: string;
     provider: GitProvider;
     protocol: GitProtocol;
     host: string;
@@ -21,7 +22,11 @@ const KNOWN_PROVIDERS: Record<string, GitProvider> = {
     "bitbucket.org": "bitbucket",
 };
 
-export function parseGitUrl(ref: string, rawUrl: string): ParsedGitUrl | null {
+export function parseGitUrl(
+    ref: string,
+    direction: string,
+    rawUrl: string,
+): ParsedGitUrl | null {
     if (!rawUrl || typeof rawUrl !== "string") return null;
 
     // Clean trailing spaces and trailing whitespace/newlines from git remote -v
@@ -71,6 +76,7 @@ export function parseGitUrl(ref: string, rawUrl: string): ParsedGitUrl | null {
 
     return {
         ref,
+        direction,
         provider,
         protocol,
         host,
@@ -81,8 +87,12 @@ export function parseGitUrl(ref: string, rawUrl: string): ParsedGitUrl | null {
     };
 }
 
-export const parseGitRemoteRefs = (refs: RemoteWithRefs[]) => {
+export const parseGitRemoteRefs = (refs: RemoteWithRefs[]): ParsedGitUrl[] => {
     return filterNotNull(
-        refs.map((ref) => parseGitUrl(ref.name, ref.refs.fetch)),
+        refs.flatMap((ref) =>
+            Object.entries(ref.refs).map(([direction, url]) =>
+                parseGitUrl(ref.name, direction, url),
+            ),
+        ),
     );
 };
