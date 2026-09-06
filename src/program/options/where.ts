@@ -2,7 +2,7 @@ import { InvalidArgumentError, Option } from "commander";
 import { type GitRepoFilters, parseQueryString } from "@/git/filter";
 
 export type WhereOption = {
-    where: number;
+    where: GitRepoFilters;
 };
 
 export const whereOption = new Option(
