@@ -5,6 +5,7 @@ import { checkoutCommand } from "./commands/checkout/command";
 import { execCommand } from "./commands/exec/command";
 import { fetchCommand } from "./commands/fetch/command";
 import { findBranchCommand } from "./commands/find-branch/command";
+import { grepCommand } from "./commands/grep/command";
 import { listCommand } from "./commands/list/command";
 import { pullCommand } from "./commands/pull/command";
 import { statusCommand } from "./commands/status/command";
@@ -23,6 +24,7 @@ program
     .addCommand(execCommand)
     .addCommand(fetchCommand)
     .addCommand(findBranchCommand)
+    .addCommand(grepCommand)
     .addCommand(listCommand)
     .addCommand(pullCommand)
     .addCommand(statusCommand);
