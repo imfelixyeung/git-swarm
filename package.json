@@ -23,11 +23,20 @@
         "biome": "biome check",
         "ci": "biome ci",
         "test": "bun test",
-        "config-json-schema:update": "bun run src/scripts/make-config-json-schema.ts > src/config/schema.json"
+        "config-json-schema:update": "bun run src/scripts/make-config-json-schema.ts > src/config/schema.json",
+        "changeset": "changeset",
+        "changeset:version": "changeset version && biome check --write",
+        "release": "bun run build && changeset publish"
     },
     "devDependencies": {
         "@biomejs/biome": "2.5.12",
+        "@changesets/changelog-github": "^1.0.1",
+        "@changesets/cli": "^3.0.2",
         "@types/bun": "latest"
+    },
+    "publishConfig": {
+        "access": "public",
+        "provenance": true
     },
     "peerDependencies": {
         "typescript": "^7"
