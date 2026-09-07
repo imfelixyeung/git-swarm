@@ -50,6 +50,7 @@
         "dedent": "^1.7.2",
         "p-limit": "^7.3.2",
         "picocolors": "^1.1.1",
+        "pluralize-esm": "^9.0.5",
         "simple-git": "^3.36.0",
         "tinyglobby": "^0.2.17",
         "zod": "^4.5.4"

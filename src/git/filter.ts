@@ -1,3 +1,4 @@
+import pluralize from "pluralize-esm";
 import z from "zod";
 import { arrayHasOverlaps } from "@/utils/array-has-overlaps";
 import { catchError } from "@/utils/error";
@@ -48,7 +49,7 @@ export const parseQueryString = (query: string) => {
         const issue = result.error.issues
             .map((i) => {
                 if (i.code === "unrecognized_keys") {
-                    return `unknown filter${i.keys.length > 1 ? "s" : ""}: ${i.keys
+                    return `${pluralize("unknown filter", i.keys.length, true)}: ${i.keys
                         .map((key) => `"${key}"`)
                         .join(", ")}`;
                 }

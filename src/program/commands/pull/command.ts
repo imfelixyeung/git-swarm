@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import pluralize from "pluralize-esm";
 import type { PullResult } from "simple-git";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
@@ -13,7 +14,7 @@ const getPullSummary = (result: PullResult) => {
 
     const { insertions, deletions } = result.summary;
     const chunks = [
-        `${result.files.length} file(s) changed`,
+        `${pluralize("file", result.files.length, true)} changed`,
         insertions ? `+${insertions}` : null,
         deletions ? `-${deletions}` : null,
     ];

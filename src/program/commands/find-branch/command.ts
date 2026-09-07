@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import pluralize from "pluralize-esm";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
@@ -47,7 +48,7 @@ export const findBranchCommand = new Command("find-branch")
         );
         const matches = filterNotNull(results);
         console.log(
-            `${c.gray("branch")} ${c.bold(branch)} ${c.gray(`found in ${matches.length} repo(s):`)}`,
+            `${c.gray("branch")} ${c.bold(branch)} ${c.gray(`found in ${pluralize("repo", matches.length, true)}:`)}`,
         );
         if (matches.length === 0) {
             return;
