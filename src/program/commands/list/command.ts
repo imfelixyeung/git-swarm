@@ -13,7 +13,6 @@ export const listCommand = new Command("list")
         });
         const repos = await forEachRepo(
             root,
-            "listing repositories",
             async ({ path }) => path.relative,
             programOptions,
         );

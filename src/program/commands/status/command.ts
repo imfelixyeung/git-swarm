@@ -3,7 +3,7 @@ import type { StatusResult } from "simple-git";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
-import { catchError } from "@/utils/error";
+import { catchError, reportRepoError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
@@ -41,19 +41,10 @@ export const statusCommand = new Command("status")
         });
         const results = await forEachRepo(
             root,
-            "checking repositories",
             async ({ path, git }) => {
                 const status = await git.status().catch(catchError);
                 if (status instanceof Error) {
-                    if (process.env.NODE_ENV === "dev") {
-                        return [
-                            path.relative,
-                            "---",
-                            "---",
-                            status.message.trim(),
-                        ];
-                    }
-                    return null;
+                    return reportRepoError(path.relative, status);
                 }
                 return [
                     path.relative,

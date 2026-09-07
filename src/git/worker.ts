@@ -13,7 +13,6 @@ type ForEachRepoOptions = {
 
 export const forEachRepo = async <T>(
     root: string,
-    _label: string,
     visit: (repo: GitRepository) => Promise<T>,
     options: ForEachRepoOptions,
 ): Promise<T[]> => {

@@ -3,7 +3,7 @@ import { formatDistanceToNow } from "date-fns";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
-import { catchError } from "@/utils/error";
+import { catchError, reportRepoError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
@@ -46,12 +46,14 @@ export const logCommand = new Command("log")
         ];
         const log = await forEachRepo(
             root,
-            "reading logs",
             async ({ path, git }) => {
                 const result = await git
                     .log(["--stat=4096", ...logArgs])
                     .catch(catchError);
-                if (result instanceof Error || result.all.length === 0) {
+                if (result instanceof Error) {
+                    return reportRepoError(path.relative, result);
+                }
+                if (result.all.length === 0) {
                     return null;
                 }
                 return { path: path.relative, log: result };

@@ -3,7 +3,7 @@ import type { DiffResult } from "simple-git";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
-import { catchError } from "@/utils/error";
+import { catchError, reportRepoError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
@@ -44,15 +44,16 @@ export const diffCommand = new Command("diff")
         const programOptions = getProgramOptions();
         const root = process.cwd();
         const diffArgs = options.cached ? ["--cached"] : [];
+        let failed = false;
         const results = await forEachRepo(
             root,
-            "diffing repositories",
             async ({ path, git }) => {
                 const summary = await git
                     .diffSummary(rev ? [rev, ...diffArgs] : diffArgs)
                     .catch(catchError);
                 if (summary instanceof Error) {
-                    return null;
+                    failed = true;
+                    return reportRepoError(path.relative, summary);
                 }
 
                 if (summary.changed === 0) {
@@ -67,6 +68,7 @@ export const diffCommand = new Command("diff")
         const diffs = filterNotNull(results);
 
         if (diffs.length === 0) {
+            process.exitCode = failed ? 1 : 0;
             return;
         }
 

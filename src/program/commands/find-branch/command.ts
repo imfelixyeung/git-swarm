@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
-import { catchError } from "@/utils/error";
+import { catchError, reportRepoError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
@@ -30,11 +30,10 @@ export const findBranchCommand = new Command("find-branch")
         });
         const results = await forEachRepo(
             root,
-            "searching repositories",
             async ({ path, git }) => {
                 const result = await git.branch().catch(catchError);
                 if (result instanceof Error) {
-                    return null;
+                    return reportRepoError(path.relative, result);
                 }
 
                 const found = getBranchSummary(branch, result.all);
