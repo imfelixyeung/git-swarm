@@ -14,7 +14,7 @@ jobs:
 
             - uses: oven-sh/setup-bun@v2
               with:
-                  bun-version: latest
+                  bun-version: 1.4.2
 
             - run: bun install --frozen-lockfile
 
@@ -22,7 +22,7 @@ jobs:
               run: bun run ci
 
             - name: Check markdown formatting
-              run: npx prettier@3 --check README.md
+              run: bunx prettier --check README.md
 
             - name: Typecheck
               run: bun run typecheck
