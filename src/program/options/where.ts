@@ -14,9 +14,12 @@ export const whereOption = new Option(
 )
     .default(parseQueryString(defaultWhere), defaultWhere || "all repos")
     .argParser((value) => {
-        const parsed = parseQueryString(value);
-        if (parsed instanceof Error) {
-            throw new InvalidArgumentError(parsed.message);
+        try {
+            return parseQueryString(value);
+        } catch (error) {
+            if (error instanceof Error) {
+                throw new InvalidArgumentError(error.message);
+            }
+            throw error;
         }
-        return parsed;
     });
