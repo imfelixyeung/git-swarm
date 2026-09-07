@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
-import { catchError } from "@/utils/error";
+import { catchError, reportRepoError } from "@/utils/error";
 
 type RepoGrepResult = {
     repo: string;
@@ -19,13 +19,12 @@ export const grepCommand = new Command("grep")
         const root = process.cwd();
         const results = await forEachRepo(
             root,
-            `searching for "${pattern}"`,
             async ({ path, git }) => {
                 const result = await git
                     .grep(pattern, grepOptions)
                     .catch(catchError);
                 if (result instanceof Error) {
-                    return null;
+                    return reportRepoError(path.relative, result);
                 }
 
                 const lines: RepoGrepResult["lines"] = [];

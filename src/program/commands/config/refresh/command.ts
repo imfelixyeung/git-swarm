@@ -29,12 +29,10 @@ export const refreshCommand = new Command("refresh")
         const oldConfig = await config.get();
         const programOptions = getProgramOptions();
         const root = process.cwd();
-        const repos = await forEachRepo(
-            root,
-            "discovering repositories",
-            async (repo) => repo,
-            { ...programOptions, skipConfig: true },
-        );
+        const repos = await forEachRepo(root, async (repo) => repo, {
+            ...programOptions,
+            skipConfig: true,
+        });
 
         repos.sort((a, b) => a.path.relative.localeCompare(b.path.relative));
 

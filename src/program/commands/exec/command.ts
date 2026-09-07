@@ -60,7 +60,6 @@ export const execCommand = new Command("exec")
         const root = process.cwd();
         const results = await forEachRepo(
             root,
-            "executing command",
             async ({ path }) =>
                 runCommand(path.relative, path.absolute, command),
             programOptions,

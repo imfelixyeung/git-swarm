@@ -2,7 +2,7 @@ import { Command } from "commander";
 import type { PullResult } from "simple-git";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
-import { catchError } from "@/utils/error";
+import { catchError, reportRepoError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
@@ -29,21 +29,25 @@ export const pullCommand = new Command("pull")
         const programOptions = getProgramOptions();
         const root = process.cwd();
         const table = new CliTable({ head: ["path", "result"] });
+        let failed = false;
         const results = await forEachRepo(
             root,
-            "pulling repositories",
             async ({ path, git }) => {
                 const result = await git
                     .pull(remote ?? undefined, branch ?? undefined)
                     .catch(catchError);
                 if (result instanceof Error) {
-                    return null;
+                    failed = true;
+                    return reportRepoError(path.relative, result);
                 }
 
                 return [path.relative, getPullSummary(result)];
             },
             programOptions,
         );
+        if (failed) {
+            process.exitCode = 1;
+        }
         table.push(...filterNotNull(results));
         console.log(table.toString());
     });
