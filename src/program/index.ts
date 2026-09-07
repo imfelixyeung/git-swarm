@@ -9,6 +9,7 @@ import { fetchCommand } from "./commands/fetch/command";
 import { findBranchCommand } from "./commands/find-branch/command";
 import { grepCommand } from "./commands/grep/command";
 import { listCommand } from "./commands/list/command";
+import { logCommand } from "./commands/log/command";
 import { pullCommand } from "./commands/pull/command";
 import { remoteCommand } from "./commands/remote/command";
 import { statusCommand } from "./commands/status/command";
@@ -35,6 +36,7 @@ program
     .addCommand(findBranchCommand)
     .addCommand(grepCommand)
     .addCommand(listCommand)
+    .addCommand(logCommand)
     .addCommand(pullCommand)
     .addCommand(remoteCommand)
     .addCommand(statusCommand);
