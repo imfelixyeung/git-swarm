@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { findGitRepositories } from "@/git/discover";
+import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
 import { CliTable } from "@/utils/table";
 
@@ -11,11 +11,14 @@ export const listCommand = new Command("list")
         const table = new CliTable({
             head: ["path"],
         });
-        for await (const { path } of findGitRepositories(
+        const repos = await forEachRepo(
             root,
-            programOptions.where,
-        )) {
-            table.push([path.relative]);
+            "listing repositories",
+            async ({ path }) => path.relative,
+            programOptions,
+        );
+        for (const relative of repos) {
+            table.push([relative]);
         }
         console.log(table.toString());
     });

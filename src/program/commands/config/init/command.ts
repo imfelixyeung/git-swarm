@@ -6,7 +6,7 @@ import {
     defaultConfig,
     type GitSwarmConfig,
 } from "@/config";
-import { findGitRepositories } from "@/git/discover";
+import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
 
@@ -34,10 +34,11 @@ export const initCommand = new Command("init")
         }
         const programOptions = getProgramOptions();
         const root = process.cwd();
-        const repos = await Array.fromAsync(
-            findGitRepositories(root, programOptions.where, {
-                skipConfig: true,
-            }),
+        const repos = await forEachRepo(
+            root,
+            "discovering repositories",
+            async (repo) => repo,
+            { ...programOptions, skipConfig: true },
         );
 
         repos.sort((a, b) => a.path.relative.localeCompare(b.path.relative));

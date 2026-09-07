@@ -1,8 +1,7 @@
-import { dirname, relative } from "node:path";
-import simpleGit, { type SimpleGit } from "simple-git";
+import { dirname } from "node:path";
+import type { SimpleGit } from "simple-git";
 import { glob } from "tinyglobby";
 import { config } from "@/config";
-import { type GitRepoFilters, repoMatchesFilter } from "./filter";
 
 export type GitRepository = {
     path: {
@@ -35,24 +34,5 @@ export async function* findGitRepositoryPaths(root: string, options: Options) {
 
     for (const path of matches) {
         yield dirname(path);
-    }
-}
-
-export async function* findGitRepositories(
-    root: string,
-    filter: GitRepoFilters,
-    options: Options = { skipConfig: false },
-): AsyncGenerator<GitRepository> {
-    for await (const path of findGitRepositoryPaths(root, options)) {
-        const repo = {
-            path: { absolute: path, relative: relative(root, path) || "." },
-            git: simpleGit(path, { baseDir: path }),
-        };
-
-        if (!(await repoMatchesFilter(repo, filter))) {
-            continue;
-        }
-
-        yield repo;
     }
 }
