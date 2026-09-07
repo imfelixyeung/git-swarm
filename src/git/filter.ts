@@ -15,7 +15,7 @@ const booleanFilterSchema = z
     .transform((v) => v === "true")
     .nullish();
 
-const repoFiltersSchema = z.object({
+const repoFiltersSchema = z.strictObject({
     branch: oneOrMoreStringsFilterSchema,
     clean: booleanFilterSchema,
     "remote.ref": oneOrMoreStringsFilterSchema,
@@ -46,7 +46,14 @@ export const parseQueryString = (query: string) => {
     const result = repoFiltersSchema.safeParse(rawSearch);
     if (result.error) {
         const issue = result.error.issues
-            .map((i) => `${i.path}: ${i.message}`)
+            .map((i) => {
+                if (i.code === "unrecognized_keys") {
+                    return `unknown filter${i.keys.length > 1 ? "s" : ""}: ${i.keys
+                        .map((key) => `"${key}"`)
+                        .join(", ")}`;
+                }
+                return `${i.path}: ${i.message}`;
+            })
             .join(". ");
 
         throw new Error(`Invalid filter query. ${issue}`);
