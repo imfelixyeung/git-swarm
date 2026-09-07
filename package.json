@@ -18,7 +18,8 @@
     "scripts": {
         "build": "bun build ./src/cli.ts --target=bun --outfile=dist/cli.js",
         "dev": "bun run build --watch",
-        "prepack": "bun run build",
+        "prepack": "bun run build && jq 'del(.dependencies, .devDependencies, .peerDependencies)' package.json > package.json.tmp && mv package.json.tmp package.json",
+        "postpack": "git checkout package.json",
         "typecheck": "tsc --noEmit",
         "biome": "biome check",
         "ci": "biome ci",
