@@ -1,18 +1,39 @@
-import { Option } from "commander";
+import { InvalidArgumentError, Option } from "commander";
 import { config } from "@/config";
+
+const toParallel = (value: string | number): number => {
+    const parallel = Number(value);
+    if (!Number.isInteger(parallel) || parallel < 0) {
+        throw new InvalidArgumentError(
+            "expected a non-negative integer (0 = unlimited, 1 = sequential)",
+        );
+    }
+    if (parallel === 0) {
+        return Infinity;
+    }
+    return parallel;
+};
+
+const valueDescription = (value: number): string => {
+    switch (true) {
+        case value === 0:
+            return "unlimited";
+        case value === 1:
+            return "sequential";
+        default:
+            return value.toLocaleString();
+    }
+};
 
 export type ParallelOption = {
     parallel: number;
 };
 
-const defaultValue = await config.getOption("parallel");
+const defaultValue = toParallel(await config.getOption("parallel"));
 
 export const parallelOption = new Option(
     "--parallel <count>",
-    "run git in parallel",
+    "run git in parallel, 0 = unlimited",
 )
-    .default(
-        defaultValue,
-        defaultValue === 1 ? "sequential" : defaultValue.toString(),
-    )
-    .argParser((value) => Number(value));
+    .default(defaultValue, valueDescription(defaultValue))
+    .argParser(toParallel);
