@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import dedent from "dedent";
 import { CONFIG_FILE_NAME, config, type GitSwarmConfig } from "@/config";
-import { findGitRepositories } from "@/git/discover";
+import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
 
@@ -29,10 +29,11 @@ export const refreshCommand = new Command("refresh")
         const oldConfig = await config.get();
         const programOptions = getProgramOptions();
         const root = process.cwd();
-        const repos = await Array.fromAsync(
-            findGitRepositories(root, programOptions.where, {
-                skipConfig: true,
-            }),
+        const repos = await forEachRepo(
+            root,
+            "discovering repositories",
+            async (repo) => repo,
+            { ...programOptions, skipConfig: true },
         );
 
         repos.sort((a, b) => a.path.relative.localeCompare(b.path.relative));

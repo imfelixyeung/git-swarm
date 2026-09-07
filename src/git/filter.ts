@@ -58,26 +58,6 @@ export const repoMatchesFilter = async (
     repo: GitRepository,
     filters: GitRepoFilters,
 ): Promise<boolean> => {
-    const status = await repo.git.status().catch(catchError);
-    if (status instanceof Error) {
-        return false;
-    }
-
-    const rawRemotes = await repo.git.getRemotes(true);
-    const remotes = parseGitRemoteRefs(rawRemotes);
-
-    if (!isNullish(filters.branch) && status.current) {
-        if (!arrayHasOverlaps(filters.branch, [status.current])) {
-            return false;
-        }
-    }
-    if (!isNullish(filters.clean)) {
-        const isClean = status.isClean();
-        if (filters.clean !== isClean) {
-            return false;
-        }
-    }
-
     const remoteStringFilters = [
         "ref",
         "provider",
@@ -85,14 +65,50 @@ export const repoMatchesFilter = async (
         "host",
         "name",
     ] as const;
+    const needsStatus = !isNullish(filters.branch) || !isNullish(filters.clean);
+    const needsRemotes = remoteStringFilters.some(
+        (key) => !isNullish(filters[`remote.${key}`]),
+    );
 
-    for (const remoteKey of remoteStringFilters) {
-        const filterKey = `remote.${remoteKey}` as const;
-        if (!isNullish(filters[filterKey])) {
-            const needles = filters[filterKey];
-            const haystacks = remotes.map((r) => r[remoteKey]);
-            if (!arrayHasOverlaps(needles, haystacks)) {
+    if (!needsStatus && !needsRemotes) {
+        return true;
+    }
+
+    if (needsStatus) {
+        const status = await repo.git.status().catch(catchError);
+        if (status instanceof Error) {
+            return false;
+        }
+
+        if (!isNullish(filters.branch) && status.current) {
+            if (!arrayHasOverlaps(filters.branch, [status.current])) {
                 return false;
+            }
+        }
+        if (!isNullish(filters.clean)) {
+            const isClean = status.isClean();
+            if (filters.clean !== isClean) {
+                return false;
+            }
+        }
+    }
+
+    if (needsRemotes) {
+        const rawRemotes = await repo.git.getRemotes(true).catch(catchError);
+        if (rawRemotes instanceof Error) {
+            return false;
+        }
+
+        const remotes = parseGitRemoteRefs(rawRemotes);
+
+        for (const remoteKey of remoteStringFilters) {
+            const filterKey = `remote.${remoteKey}` as const;
+            if (!isNullish(filters[filterKey])) {
+                const needles = filters[filterKey];
+                const haystacks = remotes.map((r) => r[remoteKey]);
+                if (!arrayHasOverlaps(needles, haystacks)) {
+                    return false;
+                }
             }
         }
     }
