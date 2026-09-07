@@ -1,7 +1,7 @@
 import { InvalidArgumentError, Option } from "commander";
 import { config } from "@/config";
 
-const toParallel = (value: string | number): number => {
+export const toParallel = (value: string | number): number => {
     const parallel = Number(value);
     if (!Number.isInteger(parallel) || parallel < 0) {
         throw new InvalidArgumentError(
@@ -14,7 +14,7 @@ const toParallel = (value: string | number): number => {
     return parallel;
 };
 
-const valueDescription = (value: number): string => {
+export const valueDescription = (value: number): string => {
     switch (true) {
         case value === 0:
             return "unlimited";
