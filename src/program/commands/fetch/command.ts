@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import pluralize from "pluralize-esm";
 import type { FetchResult } from "simple-git";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
@@ -9,14 +10,16 @@ import { CliTable } from "@/utils/table";
 const getFetchSummary = (result: FetchResult) => {
     const chunks = [
         result.branches.length
-            ? `${result.branches.length} new branch(s)`
+            ? pluralize("new branch", result.branches.length, true)
             : null,
-        result.tags.length ? `${result.tags.length} new tag(s)` : null,
+        result.tags.length
+            ? pluralize("new tag", result.tags.length, true)
+            : null,
         result.updated.length
-            ? `${result.updated.length} branch(s) updated`
+            ? `${pluralize("branch", result.updated.length, true)} updated`
             : null,
         result.deleted.length
-            ? `${result.deleted.length} branch(s) deleted`
+            ? `${pluralize("branch", result.deleted.length, true)} deleted`
             : null,
     ].filter(Boolean);
 

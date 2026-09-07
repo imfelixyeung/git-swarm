@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import pluralize from "pluralize-esm";
 import type { StatusResult } from "simple-git";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
@@ -25,7 +26,9 @@ const getStatusSummary = (status: StatusResult) => {
     }
 
     if (status.not_added.length) {
-        return c.red(`${status.not_added.length} untracked item(s)`);
+        return c.red(
+            pluralize("untracked item", status.not_added.length, true),
+        );
     }
 
     return c.gray("unknown");
