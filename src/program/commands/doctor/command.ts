@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { Command } from "commander";
 import dedent from "dedent";
+import pluralize from "pluralize-esm";
 import simpleGit from "simple-git";
 import { CONFIG_FILE_NAME, config } from "@/config";
 import { c } from "@/utils/colour";
@@ -108,6 +109,27 @@ export const doctorCommand = new Command("doctor")
                     `Branch '${status.current}' has no upstream`,
                 );
                 continue;
+            }
+
+            if (status.behind && status.ahead) {
+                const summary = (["ahead", "behind"] as const)
+                    .map((v) => `${pluralize("commit", status[v], true)} ${v}`)
+                    .join(" ");
+
+                doctorWarning(
+                    repo.path,
+                    `'${status.current}' has diverged from ${status.tracking}. ${summary}`,
+                );
+                continue;
+            }
+
+            for (const v of ["ahead", "behind"] as const) {
+                if (status[v]) {
+                    doctorWarning(
+                        repo.path,
+                        `'${status.current}' is ${pluralize("commit", status[v], true)} ${v} ${status.tracking}`,
+                    );
+                }
             }
 
             doctorOkay(repo.path);
