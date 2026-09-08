@@ -56,6 +56,7 @@ git swarm checkout feature/my-branch
 |---|---|
 | `--where <query>` | Filter repos using a URL query-string syntax |
 | `--parallel <count>` | Run operations in parallel (default: 1) |
+| `--no-progress` | Disable the progress bar (defaults to enabled only when stdout is a TTY) |
 
 ### Filtering with `--where`
 
