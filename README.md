@@ -48,6 +48,7 @@ git swarm checkout feature/my-branch
 | `find-branch <branch>` | Search all repos for a branch by name |
 | `remote` | List remotes for each repo |
 | `exec <command...>` | Run an arbitrary shell command in every repo |
+| `doctor` | Run diagnostics |
 
 ## Global Options
 

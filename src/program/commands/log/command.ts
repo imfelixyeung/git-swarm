@@ -8,6 +8,7 @@ import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
 type LogOptions = {
+    all: boolean;
     after: string | null;
     before: string | null;
     exactDate: boolean;
@@ -29,6 +30,7 @@ type LogRow = {
 export const logCommand = new Command("log")
     .description("Show commit logs across all repositories")
     .argument("[rev]", "the revision or revision range to log")
+    .option("--all", "show commits on all branches")
     .option("--after <date>", "show commits more recent than a specific date")
     .option("--before <date>", "show commits older than a specific date")
     .option(
@@ -40,6 +42,7 @@ export const logCommand = new Command("log")
         const programOptions = getProgramOptions();
         const root = process.cwd();
         const logArgs = [
+            ...(options.all ? ["--all"] : []),
             ...(rev ? [rev] : []),
             ...(options.after ? [`--after=${options.after}`] : []),
             ...(options.before ? [`--before=${options.before}`] : []),
