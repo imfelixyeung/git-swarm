@@ -1,5 +1,11 @@
 # @imfelixyeung/git-swarm
 
+## 0.3.0
+
+### Minor Changes
+
+- [#39](https://github.com/imfelixyeung/git-swarm/pull/39) [`fb97ed2`](https://github.com/imfelixyeung/git-swarm/commit/fb97ed22271e76cbe3b5f6dcef0f5a1f9102105f) Thanks [@imfelixyeung](https://github.com/imfelixyeung)! - Migrate `--where` filtering from a URL query-string syntax to JEXL expressions evaluated against a rich per-repo context (`branch`, `branches`, `localBranches`, `clean`, `ahead`, `behind`, `remote.*`, and more)
+
 ## 0.2.0
 
 ### Minor Changes
