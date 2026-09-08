@@ -65,13 +65,22 @@ Use `--where` to selectively target repos based on branch, clean/dirty state, or
 
 ```bash
 # Only repos on the main branch
-git swarm --where "branch=main" status
+git swarm --where "branch.eq=main" status
 
 # Only dirty repos with a GitHub remote
-git swarm --where "clean=false&remote.provider=github" status
+git swarm --where "clean=false&remote.provider.eq=github" status
 
 # Only repos owned by a specific user
-git swarm --where "remote.owner=imfelixyeung" pull
+git swarm --where "remote.owner.eq=imfelixyeung" pull
+
+# Only repos that are ahead of their upstream by at least 2 commits
+git swarm --where "ahead.gte=2" push
+
+# Only repos on a feature branch, not touching main
+git swarm --where "branch.starts-with=feature/&branch.neq=main" status
+
+# Only repos whose remote url is under github.com/imfelixyeung
+git swarm --where "remote.host.eq=github.com&remote.owner.includes=imfelix" pull
 ```
 
 Available filter keys:
@@ -79,13 +88,35 @@ Available filter keys:
 <!-- prettier-ignore -->
 | Key | Description |
 |---|---|
-| `branch` | Current branch name |
+| `branch.*` | Current branch name |
 | `clean` | Whether the working tree is clean (`true`/`false`) |
-| `remote.provider` | Remote provider (`github`, `gitlab`, `bitbucket`) |
-| `remote.owner` | Repository owner |
-| `remote.name` | Repository name |
-| `remote.host` | Remote host |
-| `remote.ref` | Full remote URL |
+| `ahead` | Whether the branch is ahead of its upstream (`true`/`false`) |
+| `behind` | Whether the branch is behind its upstream (`true`/`false`) |
+| `ahead.eq` / `ahead.neq` | Compare commits ahead of upstream |
+| `ahead.gte` / `ahead.gt` / `ahead.lt` / `ahead.lte` | Compare commits ahead of upstream |
+| `behind.eq` / `behind.neq` | Compare commits behind upstream |
+| `behind.gte` / `behind.gt` / `behind.lt` / `behind.lte` | Compare commits behind upstream |
+| `upstream-branch.*` | Upstream tracking branch (e.g. `origin/main`) |
+| `remote.provider.*` | Remote provider (`github`, `gitlab`, `bitbucket`) |
+| `remote.owner.*` | Repository owner |
+| `remote.name.*` | Repository name |
+| `remote.host.*` | Remote host |
+| `remote.ref.*` | Full remote URL |
+
+String filters (`branch*`, `upstream-branch*`, `remote.*`) use operators:
+
+<!-- prettier-ignore -->
+| Operator | Description |
+|---|---|
+| `.eq` | Strict equality (any value matches if present) |
+| `.neq` | Strict not equality |
+| `.gte` / `.gt` / `.lt` / `.lte` | Lexicographic comparison against other strings |
+| `.includes` | Contains the given substring |
+| `.not-includes` | Does not contain the given substring |
+| `.starts-with` | Starts with the given prefix |
+| `.ends-with` | Ends with the given suffix |
+
+For example, `branch.eq=main`, `remote.owner.neq=imfelixyeung`, or `branch.starts-with=feature/`.
 
 ### Parallel Execution
 
@@ -113,7 +144,7 @@ git swarm exec "git clean -fd"
 git swarm fetch --prune
 
 # Only pull repos that are behind their upstream
-git swarm --where "branch=main&clean=true" pull
+git swarm --where "branch.eq=main&clean=true" pull
 ```
 
 ## Development
