@@ -107,7 +107,7 @@ export const logCommand = new Command("log")
         for (const row of rows) {
             table.push([
                 row.path,
-                row.hash,
+                c.gray(row.hash),
                 c.gray(row.date),
                 ...(options.author ? [row.author] : []),
                 row.message,
