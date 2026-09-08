@@ -1,21 +1,21 @@
 import { InvalidArgumentError, Option } from "commander";
 import { config } from "@/config";
-import { type GitRepoFilters, parseQueryString } from "@/git/filter";
+import { compileQuery, type RepoQuery } from "@/git/filter";
 
 export type WhereOption = {
-    where: GitRepoFilters;
+    where: RepoQuery;
 };
 
 const defaultWhere = await config.getOption("where");
 
 export const whereOption = new Option(
-    "--where <query>",
-    "filter repos by a query string",
+    "--where <expression>",
+    "filter repos by a JEXL expression",
 )
-    .default(parseQueryString(defaultWhere), defaultWhere || "all repos")
+    .default(compileQuery(defaultWhere), defaultWhere.trim() || "all repos")
     .argParser((value) => {
         try {
-            return parseQueryString(value);
+            return compileQuery(value);
         } catch (error) {
             if (error instanceof Error) {
                 throw new InvalidArgumentError(error.message);

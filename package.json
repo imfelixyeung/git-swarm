@@ -34,6 +34,7 @@
         "@changesets/changelog-github": "^1.0.1",
         "@changesets/cli": "^3.0.2",
         "@types/bun": "latest",
+        "@types/jexl": "^2.3.4",
         "@types/lodash.chunk": "^4.2.9",
         "prettier": "3.9.6"
     },
@@ -49,6 +50,7 @@
         "commander": "^15.0.0",
         "date-fns": "^4.4.0",
         "dedent": "^1.7.2",
+        "jexl": "^2.3.0",
         "lodash.chunk": "^4.2.0",
         "p-limit": "^7.3.2",
         "picocolors": "^1.1.1",

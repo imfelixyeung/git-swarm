@@ -2,4 +2,4 @@
 "@imfelixyeung/git-swarm": minor
 ---
 
-Expand `--where` filters with string operators (`eq`, `neq`, `includes`, `starts-with`, `ends-with`, `gte`, `lt`) for `branch`, `upstream-branch`, and `remote.*`, and numeric comparisons plus `ahead`/`behind` commit counts
+Migrate `--where` filtering from a URL query-string syntax to JEXL expressions evaluated against a rich per-repo context (`branch`, `clean`, `ahead`, `behind`, `remote.*`, and more)

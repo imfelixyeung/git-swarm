@@ -1,10 +1,21 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import type { RemoteWithRefs, SimpleGit, StatusResult } from "simple-git";
 import type { GitRepository } from "./discover";
-import { parseQueryString, repoMatchesFilter } from "./filter";
+import { compileQuery, repoMatchesFilter } from "./filter";
 
 type StatusOverrides = Partial<
-    Pick<StatusResult, "ahead" | "behind" | "current" | "tracking">
+    Pick<
+        StatusResult,
+        | "ahead"
+        | "behind"
+        | "current"
+        | "tracking"
+        | "detached"
+        | "staged"
+        | "modified"
+        | "not_added"
+        | "isClean"
+    >
 >;
 
 const makeStatus = (overrides: StatusOverrides = {}): StatusResult =>
@@ -13,6 +24,10 @@ const makeStatus = (overrides: StatusOverrides = {}): StatusResult =>
         tracking: "origin/main",
         ahead: 0,
         behind: 0,
+        detached: false,
+        staged: [],
+        modified: [],
+        not_added: [],
         isClean: () => true,
         ...overrides,
     }) as StatusResult;
@@ -22,8 +37,8 @@ const makeRepo = (
     remotes: RemoteWithRefs[] = [],
 ): GitRepository => {
     const git = {
-        status: async () => makeStatus(statusOverrides),
-        getRemotes: async () => remotes,
+        status: mock(async () => makeStatus(statusOverrides)),
+        getRemotes: mock(async () => remotes),
     } as unknown as SimpleGit;
     return {
         path: { absolute: "/tmp/foo", relative: "foo" },
@@ -36,368 +51,280 @@ const makeRemote = (name: string, fetch: string): RemoteWithRefs => ({
     refs: { fetch, push: fetch },
 });
 
-describe("parseQueryString", () => {
-    test("parses ahead and behind filters", () => {
-        expect(
-            parseQueryString(
-                "ahead=true&behind=true&upstream-branch.eq=origin/main",
-            ),
-        ).toEqual({
-            ahead: true,
-            behind: true,
-            "upstream-branch.eq": ["origin/main"],
-        });
+const gitHubRemote = makeRemote(
+    "origin",
+    "https://github.com/imfelixyeung/git-swarm.git",
+);
+
+const matches = (repo: GitRepository, expression: string) =>
+    repoMatchesFilter(repo, compileQuery(expression));
+
+describe("compileQuery", () => {
+    test("compiles a valid expression", () => {
+        const query = compileQuery('branch == "main" && clean');
+        expect(query.expression).not.toBeNull();
     });
 
-    test("parses numeric ahead and behind comparisons", () => {
-        expect(
-            parseQueryString(
-                "ahead.gte=2&ahead.gt=1&ahead.lt=10&ahead.lte=5&behind.gte=3",
-            ),
-        ).toEqual({
-            "ahead.gte": 2,
-            "ahead.gt": 1,
-            "ahead.lt": 10,
-            "ahead.lte": 5,
-            "behind.gte": 3,
-        });
+    test("returns a null expression for empty input", () => {
+        expect(compileQuery("").expression).toBeNull();
+        expect(compileQuery("   ").expression).toBeNull();
     });
 
-    test("rejects non-numeric comparison values", () => {
-        expect(() => parseQueryString("ahead.gte=foo")).toThrow(
-            "Invalid filter query",
-        );
-    });
-
-    test("parses string filter operators", () => {
-        expect(
-            parseQueryString(
-                "branch.eq=feat/x&branch.neq=max&branch.includes=feat&branch.not-includes=wip&branch.starts-with=feat/&branch.ends-with=-hotfix&remote.owner.eq=imfelixyeung&remote.name.neq=origin",
-            ),
-        ).toEqual({
-            "branch.eq": ["feat/x"],
-            "branch.neq": ["max"],
-            "branch.includes": ["feat"],
-            "branch.not-includes": ["wip"],
-            "branch.starts-with": ["feat/"],
-            "branch.ends-with": ["-hotfix"],
-            "remote.owner.eq": ["imfelixyeung"],
-            "remote.name.neq": ["origin"],
-        });
-    });
-
-    test("rejects bare string equality and .not operators", () => {
-        expect(() => parseQueryString("branch=main")).toThrow(
-            'unknown filter: "branch"',
-        );
-        expect(() => parseQueryString("branch.not=main")).toThrow(
-            'unknown filter: "branch.not"',
-        );
-    });
-
-    test("rejects unknown string filter operators", () => {
-        expect(() => parseQueryString("branch.foo=bar")).toThrow(
-            'unknown filter: "branch.foo"',
-        );
+    test("throws on invalid syntax", () => {
+        expect(() => compileQuery('branch == "main" &&')).toThrow();
+        expect(() => compileQuery("clean &&")).toThrow();
     });
 });
 
 describe("repoMatchesFilter", () => {
+    test("no expression matches everything without running git", async () => {
+        const repo = makeRepo();
+        expect(await repoMatchesFilter(repo, compileQuery(""))).toBe(true);
+        expect(repo.git.status).toHaveBeenCalledTimes(0);
+        expect(repo.git.getRemotes).toHaveBeenCalledTimes(0);
+    });
+
     describe("ahead", () => {
         test("matches a repo with ahead commits", async () => {
             const repo = makeRepo({ ahead: 3 });
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("ahead=true")),
-            ).toBe(true);
+            expect(await matches(repo, "ahead > 0")).toBe(true);
         });
 
         test("rejects a repo with no ahead commits", async () => {
             const repo = makeRepo({ ahead: 0 });
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("ahead=true")),
-            ).toBe(false);
-        });
-
-        test("ahead=false matches a repo that is not ahead", async () => {
-            const repo = makeRepo({ ahead: 0 });
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("ahead=false")),
-            ).toBe(true);
+            expect(await matches(repo, "ahead > 0")).toBe(false);
+            expect(await matches(repo, "ahead")).toBe(false);
         });
 
         test(".eq and .neq comparisons", async () => {
             const repo = makeRepo({ ahead: 5 });
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("ahead.eq=5")),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("ahead.eq=4")),
-            ).toBe(false);
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("ahead.neq=4")),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("ahead.neq=5")),
-            ).toBe(false);
+            expect(await matches(repo, "ahead == 5")).toBe(true);
+            expect(await matches(repo, "ahead == 4")).toBe(false);
+            expect(await matches(repo, "ahead != 4")).toBe(true);
+            expect(await matches(repo, "ahead != 5")).toBe(false);
         });
 
         test(".gte, .gt, .lt, .lte comparisons", async () => {
             const repo = makeRepo({ ahead: 5 });
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("ahead.gte=5")),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("ahead.gt=5")),
-            ).toBe(false);
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("ahead.lt=6")),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("ahead.lte=5")),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("ahead.lte=4")),
-            ).toBe(false);
+            expect(await matches(repo, "ahead >= 5")).toBe(true);
+            expect(await matches(repo, "ahead > 5")).toBe(false);
+            expect(await matches(repo, "ahead < 6")).toBe(true);
+            expect(await matches(repo, "ahead <= 5")).toBe(true);
+            expect(await matches(repo, "ahead <= 4")).toBe(false);
         });
     });
 
     describe("behind", () => {
         test("matches a repo with behind commits", async () => {
             const repo = makeRepo({ behind: 2 });
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("behind=true")),
-            ).toBe(true);
+            expect(await matches(repo, "behind > 0")).toBe(true);
         });
 
-        test(".gte, .gt, .lt, .lte comparisons", async () => {
+        test("numeric comparisons", async () => {
             const repo = makeRepo({ behind: 3 });
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("behind.gt=2")),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("behind.lt=3")),
-            ).toBe(false);
-            expect(
-                await repoMatchesFilter(repo, parseQueryString("behind.gte=3")),
-            ).toBe(true);
+            expect(await matches(repo, "behind > 2")).toBe(true);
+            expect(await matches(repo, "behind < 3")).toBe(false);
+            expect(await matches(repo, "behind >= 3")).toBe(true);
+            expect(await matches(repo, "behind == 3")).toBe(true);
+        });
+    });
+
+    describe("working tree", () => {
+        test("matches clean repos", async () => {
+            const repo = makeRepo();
+            expect(await matches(repo, "clean")).toBe(true);
+            expect(await matches(repo, "!clean")).toBe(false);
+        });
+
+        test("matches dirty repos by file counts", async () => {
+            const repo = makeRepo({
+                isClean: () => false,
+                staged: ["a.txt"],
+                modified: ["b.txt", "c.txt"],
+                not_added: ["d.txt"],
+            });
+            expect(await matches(repo, "clean == false")).toBe(true);
+            expect(await matches(repo, "stagedFiles == 1")).toBe(true);
+            expect(await matches(repo, "modifiedFiles >= 2")).toBe(true);
+            expect(await matches(repo, "untrackedFiles > 0")).toBe(true);
+            expect(await matches(repo, "modifiedFiles == 3")).toBe(false);
         });
     });
 
     describe("branch", () => {
         test("matches strict equality", async () => {
             const repo = makeRepo({ current: "main" });
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.eq=main"),
-                ),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.eq=dev"),
-                ),
-            ).toBe(false);
+            expect(await matches(repo, 'branch == "main"')).toBe(true);
+            expect(await matches(repo, 'branch == "dev"')).toBe(false);
         });
 
-        test("branch.neq uses strict not equality", async () => {
+        test("strict not equality", async () => {
             const repo = makeRepo({ current: "main" });
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.neq=dev"),
-                ),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.neq=main"),
-                ),
-            ).toBe(false);
+            expect(await matches(repo, 'branch != "dev"')).toBe(true);
+            expect(await matches(repo, 'branch != "main"')).toBe(false);
         });
 
-        test("string comparison operators", async () => {
+        test("lexicographic comparisons", async () => {
             const repo = makeRepo({ current: "develop" });
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.gte=abc"),
-                ),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.gt=develop"),
-                ),
-            ).toBe(false);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.lt=develop"),
-                ),
-            ).toBe(false);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.lte=develop"),
-                ),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.gte=zoo"),
-                ),
-            ).toBe(false);
+            expect(await matches(repo, 'branch >= "abc"')).toBe(true);
+            expect(await matches(repo, 'branch > "develop"')).toBe(false);
+            expect(await matches(repo, 'branch < "develop"')).toBe(false);
+            expect(await matches(repo, 'branch <= "develop"')).toBe(true);
+            expect(await matches(repo, 'branch >= "zoo"')).toBe(false);
         });
 
-        test("includes and not-includes", async () => {
+        test("includes substring with the in operator", async () => {
             const repo = makeRepo({ current: "feature/parser" });
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.includes=feature/"),
-                ),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.not-includes=feature/"),
-                ),
-            ).toBe(false);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.includes=bugfix"),
-                ),
-            ).toBe(false);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.not-includes=bugfix"),
-                ),
-            ).toBe(true);
+            expect(await matches(repo, '"feature/" in branch')).toBe(true);
+            expect(await matches(repo, '"bugfix" in branch')).toBe(false);
+            expect(await matches(repo, '!("bugfix" in branch)')).toBe(true);
         });
 
-        test("starts-with and ends-with", async () => {
-            const repo = makeRepo({ current: "feature/parser" });
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.starts-with=feature/"),
-                ),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.ends-with=parser"),
-                ),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("branch.starts-with=release"),
-                ),
-            ).toBe(false);
+        test("matches a detached HEAD", async () => {
+            const repo = makeRepo({
+                current: "",
+                tracking: "",
+                detached: true,
+            });
+            expect(await matches(repo, "detached")).toBe(true);
+            expect(await matches(repo, "branch == null")).toBe(true);
         });
     });
 
-    describe("upstream-branch", () => {
-        test("matches the upstream tracking branch", async () => {
+    describe("upstream", () => {
+        test("reports repos with an upstream", async () => {
             const repo = makeRepo({ tracking: "origin/main" });
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("upstream-branch.eq=origin/main"),
-                ),
-            ).toBe(true);
+            expect(await matches(repo, "hasUpstream")).toBe(true);
+            expect(await matches(repo, 'branch == "main" && hasUpstream')).toBe(
+                true,
+            );
         });
 
-        test("rejects a non-matching upstream", async () => {
-            const repo = makeRepo({ tracking: "origin/develop" });
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("upstream-branch.eq=origin/main"),
-                ),
-            ).toBe(false);
+        test("combines branch and divergence", async () => {
+            const repo = makeRepo({ tracking: "origin/main" });
+            expect(await matches(repo, 'branch == "main" && behind > 0')).toBe(
+                false,
+            );
+        });
+
+        test("reports repos without an upstream", async () => {
+            const repo = makeRepo({ tracking: "" });
+            expect(await matches(repo, "hasUpstream == false")).toBe(true);
+        });
+    });
+
+    describe("name and path", () => {
+        test("exposes the repo directory name and relative path", async () => {
+            const repo = makeRepo();
+            expect(await matches(repo, 'name == "foo" && path == "foo"')).toBe(
+                true,
+            );
+            expect(await matches(repo, 'name == "bar"')).toBe(false);
         });
     });
 
     describe("remote", () => {
-        const repo = makeRepo({}, [
-            makeRemote(
-                "origin",
-                "https://github.com/imfelixyeung/git-swarm.git",
-            ),
-            makeRemote(
-                "upstream",
-                "https://gitlab.com/imfelixyeung/upstream.git",
-            ),
-        ]);
+        const gitHubRemote = makeRemote(
+            "origin",
+            "https://github.com/imfelixyeung/git-swarm.git",
+        );
+        const gitLabRemote = makeRemote(
+            "upstream",
+            "https://gitlab.com/imfelixyeung/upstream.git",
+        );
 
         test("matches strict equality on owner", async () => {
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("remote.owner.eq=imfelixyeung"),
-                ),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("remote.owner.eq=nope"),
-                ),
-            ).toBe(false);
+            const repo = makeRepo({}, [gitHubRemote, gitLabRemote]);
+            expect(await matches(repo, 'remote.owner == "imfelixyeung"')).toBe(
+                true,
+            );
+            expect(await matches(repo, 'remote.owner == "nope"')).toBe(false);
         });
 
-        test("remote.owner.neq requires no matching remote", async () => {
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("remote.owner.neq=nope"),
-                ),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("remote.owner.neq=imfelixyeung"),
-                ),
-            ).toBe(false);
+        test("uses the origin remote when present", async () => {
+            const repo = makeRepo({}, [gitHubRemote, gitLabRemote]);
+            expect(await matches(repo, 'remote.host == "github.com"')).toBe(
+                true,
+            );
+            expect(await matches(repo, 'remote.repo == "git-swarm"')).toBe(
+                true,
+            );
+            expect(await matches(repo, 'remote.provider == "github"')).toBe(
+                true,
+            );
         });
 
-        test("matches includes on host", async () => {
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("remote.host.includes=github"),
-                ),
-            ).toBe(true);
-            expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("remote.host.includes=bitbucket"),
-                ),
-            ).toBe(false);
+        test("matches unknown providers as other", async () => {
+            const repo = makeRepo({}, [
+                makeRemote("origin", "https://example.com/acme/thing.git"),
+            ]);
+            expect(await matches(repo, 'remote.provider == "other"')).toBe(
+                true,
+            );
+            expect(await matches(repo, 'remote.provider == "github"')).toBe(
+                false,
+            );
         });
 
-        test("matches starts-with on provider", async () => {
+        test("exposes null remote fields when there is no remote", async () => {
+            const repo = makeRepo({});
+            expect(await matches(repo, "remote.owner == null")).toBe(true);
+            expect(await matches(repo, 'remote.owner == "imfelixyeung"')).toBe(
+                false,
+            );
+        });
+    });
+
+    describe("compound expressions", () => {
+        test("matches the documented examples", async () => {
+            const repo = makeRepo({ ahead: 0, behind: 2 }, [gitHubRemote]);
             expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("remote.provider.starts-with=git"),
-                ),
+                await matches(repo, 'branch == "main" && clean && behind > 0'),
             ).toBe(true);
+            expect(await matches(repo, 'remote.provider == "github"')).toBe(
+                true,
+            );
             expect(
-                await repoMatchesFilter(
-                    repo,
-                    parseQueryString("remote.provider.starts-with=bit"),
-                ),
+                await matches(repo, 'branch == "main" && clean && ahead > 0'),
             ).toBe(false);
         });
     });
 
-    test("no filters matches everything", async () => {
-        const repo = makeRepo();
-        expect(await repoMatchesFilter(repo, parseQueryString(""))).toBe(true);
+    describe("lazy git calls", () => {
+        test("references only git status when it does not touch remotes", async () => {
+            const repo = makeRepo({ ahead: 2 });
+            expect(await matches(repo, "clean && ahead > 1")).toBe(true);
+            expect(repo.git.status).toHaveBeenCalledTimes(1);
+            expect(repo.git.getRemotes).toHaveBeenCalledTimes(0);
+        });
+
+        test("references only remotes for remote expressions", async () => {
+            const repo = makeRepo({}, [gitHubRemote]);
+            expect(await matches(repo, 'remote.host == "github.com"')).toBe(
+                true,
+            );
+            expect(repo.git.status).toHaveBeenCalledTimes(0);
+            expect(repo.git.getRemotes).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe("error handling", () => {
+        test("returns false when git status fails", async () => {
+            const repo = makeRepo();
+            repo.git.status = (async () => {
+                throw new Error("boom");
+            }) as unknown as SimpleGit["status"];
+            expect(await matches(repo, "clean")).toBe(false);
+        });
+
+        test("returns false when reading remotes fails", async () => {
+            const repo = makeRepo();
+            repo.git.getRemotes = (async () => {
+                throw new Error("boom");
+            }) as unknown as SimpleGit["getRemotes"];
+            expect(await matches(repo, 'remote.host == "github.com"')).toBe(
+                false,
+            );
+        });
     });
 });

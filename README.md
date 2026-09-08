@@ -55,68 +55,58 @@ git swarm checkout feature/my-branch
 <!-- prettier-ignore -->
 | Option | Description |
 |---|---|
-| `--where <query>` | Filter repos using a URL query-string syntax |
+| `--where <expression>` | Filter repos using a JEXL expression |
 | `--parallel <count>` | Run operations in parallel (default: 1) |
 | `--no-progress` | Disable the progress bar (defaults to enabled only when stdout is a TTY) |
 
 ### Filtering with `--where`
 
-Use `--where` to selectively target repos based on branch, clean/dirty state, or remote attributes:
+Use `--where` to selectively target repos with a [JEXL](https://www.npmjs.com/package/jexl) expression evaluated against each repo's context:
 
 ```bash
 # Only repos on the main branch
-git swarm --where "branch.eq=main" status
+git swarm --where 'branch == "main"' status
 
 # Only dirty repos with a GitHub remote
-git swarm --where "clean=false&remote.provider.eq=github" status
+git swarm --where 'clean == false && remote.provider == "github"' status
 
 # Only repos owned by a specific user
-git swarm --where "remote.owner.eq=imfelixyeung" pull
+git swarm --where 'remote.owner == "imfelixyeung"' pull
 
 # Only repos that are ahead of their upstream by at least 2 commits
-git swarm --where "ahead.gte=2" push
+git swarm --where 'ahead >= 2' push
 
 # Only repos on a feature branch, not touching main
-git swarm --where "branch.starts-with=feature/&branch.neq=main" status
+git swarm --where '"feature/" in branch && branch != "main"' status
 
-# Only repos whose remote url is under github.com/imfelixyeung
-git swarm --where "remote.host.eq=github.com&remote.owner.includes=imfelix" pull
+# Only repos whose remote is hosted under github.com/imfelixyeung
+git swarm --where 'remote.host == "github.com" && remote.owner == "imfelixyeung"' pull
 ```
 
-Available filter keys:
+Available context fields:
 
 <!-- prettier-ignore -->
-| Key | Description |
+| Field | Description |
 |---|---|
-| `branch.*` | Current branch name |
-| `clean` | Whether the working tree is clean (`true`/`false`) |
-| `ahead` | Whether the branch is ahead of its upstream (`true`/`false`) |
-| `behind` | Whether the branch is behind its upstream (`true`/`false`) |
-| `ahead.eq` / `ahead.neq` | Compare commits ahead of upstream |
-| `ahead.gte` / `ahead.gt` / `ahead.lt` / `ahead.lte` | Compare commits ahead of upstream |
-| `behind.eq` / `behind.neq` | Compare commits behind upstream |
-| `behind.gte` / `behind.gt` / `behind.lt` / `behind.lte` | Compare commits behind upstream |
-| `upstream-branch.*` | Upstream tracking branch (e.g. `origin/main`) |
-| `remote.provider.*` | Remote provider (`github`, `gitlab`, `bitbucket`) |
-| `remote.owner.*` | Repository owner |
-| `remote.name.*` | Repository name |
-| `remote.host.*` | Remote host |
-| `remote.ref.*` | Full remote URL |
+| `name` | Repository directory name |
+| `path` | Repository path relative to the swarm root |
+| `branch` | Current branch name, or `null` when detached |
+| `detached` | Whether HEAD is detached |
+| `clean` | Whether the working tree is clean |
+| `stagedFiles` | Number of staged files |
+| `modifiedFiles` | Number of modified files |
+| `untrackedFiles` | Number of untracked files |
+| `ahead` | Commits ahead of the upstream |
+| `behind` | Commits behind the upstream |
+| `hasUpstream` | Whether an upstream is configured |
+| `remote.provider` | Remote host provider (`github`, `gitlab`, `bitbucket`, `other`, or `null`) |
+| `remote.host` | Remote host |
+| `remote.owner` | Repository owner |
+| `remote.repo` | Repository name |
 
-String filters (`branch*`, `upstream-branch*`, `remote.*`) use operators:
+The `remote.*` fields describe the `origin` remote when present, otherwise the first remote. Fields that require `git status` (branch, divergence, worktree counts, ...) and the `remote.*` fields are only fetched when the expression references them.
 
-<!-- prettier-ignore -->
-| Operator | Description |
-|---|---|
-| `.eq` | Strict equality (any value matches if present) |
-| `.neq` | Strict not equality |
-| `.gte` / `.gt` / `.lt` / `.lte` | Lexicographic comparison against other strings |
-| `.includes` | Contains the given substring |
-| `.not-includes` | Does not contain the given substring |
-| `.starts-with` | Starts with the given prefix |
-| `.ends-with` | Ends with the given suffix |
-
-For example, `branch.eq=main`, `remote.owner.neq=imfelixyeung`, or `branch.starts-with=feature/`.
+Use JEXL operators: `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, and `in` for substring checks, for example `'"issue" in branch'`.
 
 ### Parallel Execution
 
@@ -144,7 +134,7 @@ git swarm exec "git clean -fd"
 git swarm fetch --prune
 
 # Only pull repos that are behind their upstream
-git swarm --where "branch.eq=main&clean=true" pull
+git swarm --where 'branch == "main" && clean' pull
 ```
 
 ## Development

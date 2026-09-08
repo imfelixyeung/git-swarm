@@ -1,349 +1,155 @@
-import pluralize from "pluralize-esm";
-import z from "zod";
-import { catchError } from "@/utils/error";
-import { isNullish } from "@/utils/is-nullish";
+import { basename } from "node:path";
+import jexl from "jexl";
+import type { RemoteWithRefs } from "simple-git";
 import type { GitRepository } from "./discover";
-import { parseGitRemoteRefs } from "./remote";
+import { type GitProvider, parseGitRemoteRefs } from "./remote";
 
-const oneOrMoreStringsFilterSchema = z
-    .union([z.string(), z.array(z.string())])
-    .transform((v) => (Array.isArray(v) ? v : [v]))
-    .optional();
+export interface RepoQueryContext {
+    name: string;
+    path: string;
 
-const booleanFilterSchema = z
-    .enum(["true", "false"])
-    .transform((v) => v === "true")
-    .optional();
+    branch: string | null;
+    detached: boolean;
 
-const numericFilterSchema = z.coerce.number().optional();
+    clean: boolean;
+    stagedFiles: number;
+    modifiedFiles: number;
+    untrackedFiles: number;
 
-const stringFilterOps = [
-    "eq",
-    "neq",
-    "gte",
-    "gt",
-    "lt",
-    "lte",
-    "includes",
-    "not-includes",
-    "starts-with",
-    "ends-with",
-] as const;
+    ahead: number;
+    behind: number;
+    hasUpstream: boolean;
 
-type StringFilterOp = (typeof stringFilterOps)[number];
-type StringFilterOpSchema<K extends string> = {
-    [key in `${K}.${StringFilterOp}`]: typeof oneOrMoreStringsFilterSchema;
-};
+    remote: {
+        provider: "github" | "gitlab" | "bitbucket" | "other" | null;
+        host: string | null;
+        owner: string | null;
+        repo: string | null;
+    };
+}
 
-const buildStringFilterSchema = <K extends string>(
-    key: K,
-): StringFilterOpSchema<K> =>
-    ({
-        [`${key}.eq`]: oneOrMoreStringsFilterSchema,
-        [`${key}.neq`]: oneOrMoreStringsFilterSchema,
-        [`${key}.gte`]: oneOrMoreStringsFilterSchema,
-        [`${key}.gt`]: oneOrMoreStringsFilterSchema,
-        [`${key}.lt`]: oneOrMoreStringsFilterSchema,
-        [`${key}.lte`]: oneOrMoreStringsFilterSchema,
-        [`${key}.includes`]: oneOrMoreStringsFilterSchema,
-        [`${key}.not-includes`]: oneOrMoreStringsFilterSchema,
-        [`${key}.starts-with`]: oneOrMoreStringsFilterSchema,
-        [`${key}.ends-with`]: oneOrMoreStringsFilterSchema,
-    }) as StringFilterOpSchema<K>;
+export type RepoQueryExpression = ReturnType<typeof jexl.createExpression>;
 
-type StringFilterOpKeys<K extends string> = {
-    [op in StringFilterOp]: `${K}.${op}`;
-}[StringFilterOp];
+export interface RepoQuery {
+    expression: RepoQueryExpression | null;
+}
 
-const buildStringFilterKeys = <K extends string>(key: K) =>
-    stringFilterOps.map((op) => `${key}.${op}`) as StringFilterOpKeys<K>[];
+type StatusFields = Partial<RepoQueryContext> &
+    Pick<
+        RepoQueryContext,
+        | "branch"
+        | "detached"
+        | "clean"
+        | "stagedFiles"
+        | "modifiedFiles"
+        | "untrackedFiles"
+        | "ahead"
+        | "behind"
+        | "hasUpstream"
+    >;
 
-const numericFilterOps = ["eq", "neq", "gte", "gt", "lt", "lte"] as const;
-type NumericFilterOp = (typeof numericFilterOps)[number];
-type NumericFilterOpSchema<K extends string> = {
-    [key in `${K}.${NumericFilterOp}`]: typeof numericFilterSchema;
-};
-type NumericFilterOpKeys<K extends string> = {
-    [op in NumericFilterOp]: `${K}.${op}`;
-}[NumericFilterOp];
+type RemoteFields = RepoQueryContext["remote"];
 
-const buildNumericFilterSchema = <K extends string>(
-    key: K,
-): NumericFilterOpSchema<K> =>
-    ({
-        [`${key}.eq`]: numericFilterSchema,
-        [`${key}.neq`]: numericFilterSchema,
-        [`${key}.gte`]: numericFilterSchema,
-        [`${key}.gt`]: numericFilterSchema,
-        [`${key}.lt`]: numericFilterSchema,
-        [`${key}.lte`]: numericFilterSchema,
-    }) as NumericFilterOpSchema<K>;
+const statusFieldKeys = new Set<keyof StatusFields>([
+    "branch",
+    "detached",
+    "clean",
+    "stagedFiles",
+    "modifiedFiles",
+    "untrackedFiles",
+    "ahead",
+    "behind",
+    "hasUpstream",
+]);
 
-const buildNumericFilterKeys = <K extends string>(key: K) =>
-    numericFilterOps.map((op) => `${key}.${op}`) as NumericFilterOpKeys<K>[];
-
-const repoFiltersSchema = z.strictObject({
-    ...buildStringFilterSchema("branch"),
-    ...buildStringFilterSchema("upstream-branch"),
-    clean: booleanFilterSchema,
-    ahead: booleanFilterSchema,
-    behind: booleanFilterSchema,
-    ...buildNumericFilterSchema("ahead"),
-    ...buildNumericFilterSchema("behind"),
-    ...buildStringFilterSchema("remote.ref"),
-    ...buildStringFilterSchema("remote.provider"),
-    ...buildStringFilterSchema("remote.owner"),
-    ...buildStringFilterSchema("remote.host"),
-    ...buildStringFilterSchema("remote.name"),
+const toStatusFields = (
+    status: Awaited<ReturnType<GitRepository["git"]["status"]>>,
+): StatusFields => ({
+    branch: status.current || null,
+    detached: status.detached,
+    clean: status.isClean(),
+    stagedFiles: status.staged.length,
+    modifiedFiles: status.modified.length,
+    untrackedFiles: status.not_added.length,
+    ahead: status.ahead,
+    behind: status.behind,
+    hasUpstream: Boolean(status.tracking),
 });
 
-export type GitRepoFilters = z.infer<typeof repoFiltersSchema>;
+const toRemoteFields = (remotes: RemoteWithRefs[]): RemoteFields => {
+    const parsed = parseGitRemoteRefs(remotes);
+    const primary =
+        parsed.find((remote) => remote.ref === "origin") ?? parsed[0];
+    if (primary === undefined) {
+        return { provider: null, host: null, owner: null, repo: null };
+    }
+    return {
+        provider: mapProvider(primary.provider),
+        host: primary.host || null,
+        owner: primary.owner || null,
+        repo: primary.name || null,
+    };
+};
 
-export const parseQueryString = (query: string) => {
-    const search = new URLSearchParams(query);
-    const rawSearch: { [key: string]: string | string[] } = {};
+const mapProvider = (provider: GitProvider): RemoteFields["provider"] =>
+    provider === "unknown" ? "other" : provider;
 
-    for (const [key, value] of search.entries()) {
-        if (key in rawSearch) {
-            if (rawSearch[key] === undefined) {
-                continue;
+export const compileQuery = (expression: string): RepoQuery => {
+    const trimmed = expression.trim();
+    if (trimmed.length === 0) {
+        return { expression: null };
+    }
+    const compiled = jexl.createExpression(trimmed);
+    compiled.compile();
+    return { expression: compiled };
+};
+
+const createRepoQueryContext = (repo: GitRepository): RepoQueryContext => {
+    let statusPromise: Promise<StatusFields> | null = null;
+    let remotePromise: Promise<RemoteFields> | null = null;
+
+    const status = () =>
+        (statusPromise ??= repo.git.status().then(toStatusFields));
+
+    const remotes = () =>
+        (remotePromise ??= repo.git.getRemotes(true).then(toRemoteFields));
+
+    return new Proxy({} as RepoQueryContext, {
+        get(_target, property) {
+            if (property === "name") {
+                return basename(repo.path.absolute);
             }
-            rawSearch[key] = Array.isArray(rawSearch[key])
-                ? [...rawSearch[key], value]
-                : [rawSearch[key], value];
-            continue;
-        }
-        rawSearch[key] = value;
-    }
-    const result = repoFiltersSchema.safeParse(rawSearch);
-    if (result.error) {
-        const issue = result.error.issues
-            .map((i) => {
-                if (i.code === "unrecognized_keys") {
-                    return `${pluralize("unknown filter", i.keys.length, true)}: ${i.keys
-                        .map((key) => `"${key}"`)
-                        .join(", ")}`;
-                }
-                return `${i.path}: ${i.message}`;
-            })
-            .join(". ");
-
-        throw new Error(`Invalid filter query. ${issue}`);
-    }
-    return result.data;
-};
-
-type StringFilterTarget =
-    | "branch"
-    | "upstream-branch"
-    | "remote.ref"
-    | "remote.provider"
-    | "remote.owner"
-    | "remote.host"
-    | "remote.name";
-
-type StringFilterGroup = {
-    eq?: string[] | null;
-    neq?: string[] | null;
-    gte?: string[] | null;
-    gt?: string[] | null;
-    lt?: string[] | null;
-    lte?: string[] | null;
-    includes?: string[] | null;
-    "not-includes"?: string[] | null;
-    "starts-with"?: string[] | null;
-    "ends-with"?: string[] | null;
-};
-
-const getStringFilterGroup = (
-    filters: GitRepoFilters,
-    key: StringFilterTarget,
-): StringFilterGroup => ({
-    eq: filters[`${key}.eq`],
-    neq: filters[`${key}.neq`],
-    gte: filters[`${key}.gte`],
-    gt: filters[`${key}.gt`],
-    lt: filters[`${key}.lt`],
-    lte: filters[`${key}.lte`],
-    includes: filters[`${key}.includes`],
-    "not-includes": filters[`${key}.not-includes`],
-    "starts-with": filters[`${key}.starts-with`],
-    "ends-with": filters[`${key}.ends-with`],
-});
-
-const matchesStringFilters = (
-    values: string[],
-    filters: StringFilterGroup,
-): boolean => {
-    const anyValueMatches = (
-        needles: string[] | null | undefined,
-        predicate: (value: string, needle: string) => boolean,
-    ): boolean => {
-        if (isNullish(needles)) {
-            return true;
-        }
-        return needles.some((needle) =>
-            values.some((value) => predicate(value, needle)),
-        );
-    };
-    const noValueMatches = (
-        needles: string[] | null | undefined,
-        predicate: (value: string, needle: string) => boolean,
-    ): boolean => {
-        if (isNullish(needles)) {
-            return true;
-        }
-        return !anyValueMatches(needles, predicate);
-    };
-
-    return (
-        anyValueMatches(filters.eq, (value, needle) => value === needle) &&
-        noValueMatches(filters.neq, (value, needle) => value === needle) &&
-        anyValueMatches(filters.gte, (value, needle) => value >= needle) &&
-        anyValueMatches(filters.gt, (value, needle) => value > needle) &&
-        anyValueMatches(filters.lt, (value, needle) => value < needle) &&
-        anyValueMatches(filters.lte, (value, needle) => value <= needle) &&
-        anyValueMatches(filters.includes, (value, needle) =>
-            value.includes(needle),
-        ) &&
-        noValueMatches(filters["not-includes"], (value, needle) =>
-            value.includes(needle),
-        ) &&
-        anyValueMatches(filters["starts-with"], (value, needle) =>
-            value.startsWith(needle),
-        ) &&
-        anyValueMatches(filters["ends-with"], (value, needle) =>
-            value.endsWith(needle),
-        )
-    );
+            if (property === "path") {
+                return repo.path.relative;
+            }
+            if (property === "remote") {
+                return remotes();
+            }
+            if (
+                typeof property === "string" &&
+                statusFieldKeys.has(property as keyof StatusFields)
+            ) {
+                return status().then(
+                    (fields) => fields[property as keyof StatusFields],
+                );
+            }
+            return undefined;
+        },
+    });
 };
 
 export const repoMatchesFilter = async (
     repo: GitRepository,
-    filters: GitRepoFilters,
+    query: RepoQuery,
 ): Promise<boolean> => {
-    const remoteStringFilters = [
-        "ref",
-        "provider",
-        "owner",
-        "host",
-        "name",
-    ] as const;
-    const remoteFilterKeys = [
-        "remote.ref",
-        "remote.provider",
-        "remote.owner",
-        "remote.host",
-        "remote.name",
-    ] as const;
-    const numericComparisons = {
-        eq: (count: number, threshold: number) => count === threshold,
-        neq: (count: number, threshold: number) => count !== threshold,
-        gte: (count: number, threshold: number) => count >= threshold,
-        gt: (count: number, threshold: number) => count > threshold,
-        lt: (count: number, threshold: number) => count < threshold,
-        lte: (count: number, threshold: number) => count <= threshold,
-    } as const;
-    const statusFilterKeys = [
-        "clean",
-        "ahead",
-        "behind",
-        ...buildNumericFilterKeys("ahead"),
-        ...buildNumericFilterKeys("behind"),
-        ...buildStringFilterKeys("branch"),
-        ...buildStringFilterKeys("upstream-branch"),
-    ] as const;
-    const needsStatus = statusFilterKeys.some(
-        (key) => !isNullish(filters[key]),
-    );
-    const needsRemotes = remoteFilterKeys.some((filterKey) =>
-        stringFilterOps.some((op) => !isNullish(filters[`${filterKey}.${op}`])),
-    );
-
-    if (!needsStatus && !needsRemotes) {
+    if (query.expression === null) {
         return true;
     }
-
-    if (needsStatus) {
-        const status = await repo.git.status().catch(catchError);
-        if (status instanceof Error) {
-            return false;
-        }
-
-        if (status.current) {
-            if (
-                !matchesStringFilters(
-                    [status.current],
-                    getStringFilterGroup(filters, "branch"),
-                )
-            ) {
-                return false;
-            }
-        }
-        if (!isNullish(filters.clean)) {
-            const isClean = status.isClean();
-            if (filters.clean !== isClean) {
-                return false;
-            }
-        }
-        if (status.tracking) {
-            if (
-                !matchesStringFilters(
-                    [status.tracking],
-                    getStringFilterGroup(filters, "upstream-branch"),
-                )
-            ) {
-                return false;
-            }
-        }
-
-        const matchesAheadBehind = (
-            name: "ahead" | "behind",
-            count: number,
-        ): boolean => {
-            const bounded = filters[name];
-            if (!isNullish(bounded) && count > 0 !== bounded) {
-                return false;
-            }
-            for (const op of numericFilterOps) {
-                const compare = numericComparisons[op];
-                const threshold = filters[`${name}.${op}` as const];
-                if (!isNullish(threshold) && !compare(count, threshold)) {
-                    return false;
-                }
-            }
-            return true;
-        };
-
-        if (!matchesAheadBehind("ahead", status.ahead)) {
-            return false;
-        }
-        if (!matchesAheadBehind("behind", status.behind)) {
-            return false;
-        }
+    try {
+        return Boolean(
+            await query.expression.eval(createRepoQueryContext(repo)),
+        );
+    } catch {
+        return false;
     }
-
-    if (needsRemotes) {
-        const rawRemotes = await repo.git.getRemotes(true).catch(catchError);
-        if (rawRemotes instanceof Error) {
-            return false;
-        }
-
-        const remotes = parseGitRemoteRefs(rawRemotes);
-
-        for (const remoteKey of remoteStringFilters) {
-            const filterKey = `remote.${remoteKey}` as const;
-            const haystacks = remotes.map((r) => r[remoteKey]);
-            if (
-                !matchesStringFilters(
-                    haystacks,
-                    getStringFilterGroup(filters, filterKey),
-                )
-            ) {
-                return false;
-            }
-        }
-    }
-
-    return true;
 };
