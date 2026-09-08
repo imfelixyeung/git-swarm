@@ -1,143 +1,122 @@
-import { join } from "node:path";
 import { Command } from "commander";
 import dedent from "dedent";
 import pluralize from "pluralize-esm";
-import simpleGit from "simple-git";
-import { CONFIG_FILE_NAME, config } from "@/config";
+import { forEachRepo } from "@/git/worker";
+import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
 import { catchError } from "@/utils/error";
 
-const symbols = {
-    log: "✓",
-    warn: "⚠",
-    error: "✗",
+type DoctorIssue = {
+    mode: "warn" | "error";
+    detail: string;
 };
 
-const colours = {
-    log: "green",
-    warn: "yellow",
-    error: "red",
-} as const;
-
-const doctorLog = (
-    summary: string,
-    details: string | null,
-    mode: "log" | "warn" | "error",
-    exitCode: number | null = null,
-) => {
-    if (exitCode !== null) {
-        process.exitCode = exitCode;
-    }
-    const symbol = symbols[mode];
-    const colour = c[colours[mode]];
-    if (details === null) {
-        return console.info(colour(`${symbol} ${summary}`));
-    }
+const reportIssue = (path: string, issue: DoctorIssue) => {
+    const symbol = issue.mode === "error" ? "✗" : "⚠";
+    const colour = issue.mode === "error" ? c.red : c.yellow;
     return console.warn(
-        colour(dedent`
-            ${symbol} ${summary}
-              ${details}
-        `),
+        colour(
+            dedent`
+                ${symbol} ${path}
+                  ${issue.detail}
+            `,
+        ),
     );
 };
 
-const doctorOkay = (summary: string) => doctorLog(summary, null, "log");
-const doctorWarning = (summary: string, details: string) =>
-    doctorLog(summary, details, "warn");
-const doctorError = (summary: string, details: string) =>
-    doctorLog(summary, details, "error", 1);
+const reportHealthy = (path: string) => {
+    console.info(c.green(`✓ ${path}`));
+};
 
 export const doctorCommand = new Command("doctor")
     .description("Run diagnostics")
     .action(async () => {
-        const configExists = await config.exists();
-        if (configExists) {
-            doctorOkay(`config file ${CONFIG_FILE_NAME} found`);
-        } else {
-            doctorError(
-                `config file ${CONFIG_FILE_NAME} not found`,
-                "run `git swarm config init` to create one",
-            );
-        }
+        const programOptions = getProgramOptions();
+        const root = process.cwd();
 
-        const configRepos = await config
-            .get()
-            .then((c) => c.repositories ?? []);
-        for (const repo of configRepos) {
-            const stat = await Bun.file(repo.path).stat().catch(catchError);
-            if (stat instanceof Error) {
-                doctorError(repo.path, "Not exist");
+        const results = await forEachRepo(
+            root,
+            async ({ path, git }) => {
+                const issues: DoctorIssue[] = [];
+                const relative = path.relative;
+
+                const status = await git.status().catch(catchError);
+                if (status instanceof Error) {
+                    issues.push({
+                        mode: "error",
+                        detail: `git status failed: ${status.message}`,
+                    });
+                    return { path: relative, issues };
+                }
+
+                if (status.detached) {
+                    issues.push({
+                        mode: "warn",
+                        detail: "HEAD is detached",
+                    });
+                }
+
+                const remotes = await git.getRemotes().catch(catchError);
+                const hasRemotes =
+                    !(remotes instanceof Error) && remotes.length > 0;
+                if (!hasRemotes) {
+                    issues.push({
+                        mode: "warn",
+                        detail: "No remotes configured",
+                    });
+                }
+
+                if (status.current && !status.tracking) {
+                    issues.push({
+                        mode: "warn",
+                        detail: `Branch '${status.current}' has no upstream`,
+                    });
+                }
+
+                if (status.behind && status.ahead) {
+                    const summary = (["ahead", "behind"] as const)
+                        .map(
+                            (v) =>
+                                `${pluralize("commit", status[v], true)} ${v}`,
+                        )
+                        .join(" ");
+
+                    issues.push({
+                        mode: "warn",
+                        detail: `'${status.current}' has diverged from ${status.tracking}. ${summary}`,
+                    });
+                } else {
+                    for (const v of ["ahead", "behind"] as const) {
+                        if (status[v]) {
+                            issues.push({
+                                mode: "warn",
+                                detail: `'${status.current}' is ${pluralize("commit", status[v], true)} ${v} ${status.tracking}`,
+                            });
+                        }
+                    }
+                }
+
+                return { path: relative, issues };
+            },
+            programOptions,
+        );
+
+        for (const result of results) {
+            if (result.issues.length === 0) {
+                reportHealthy(result.path);
                 continue;
             }
-
-            if (!stat.isDirectory()) {
-                doctorError(repo.path, "Not a directory");
-                continue;
-            }
-
-            const gitStat = await Bun.file(join(repo.path, ".git"))
-                .stat()
-                .catch(catchError);
-
-            if (gitStat instanceof Error || !gitStat.isDirectory()) {
-                doctorError(repo.path, "Not a git repository");
-                continue;
-            }
-
-            const git = simpleGit(repo.path);
-            const status = await git.status().catch(catchError);
-
-            if (status instanceof Error) {
-                doctorError(repo.path, "git status failed");
-                continue;
-            }
-
-            if (status.detached) {
-                doctorWarning(repo.path, "HEAD is detached");
-                continue;
-            }
-
-            const remotes = await git.getRemotes();
-            if (remotes.length === 0) {
-                doctorWarning(repo.path, "No remotes configured");
-                continue;
-            }
-
-            if (status.current && !status.tracking) {
-                doctorWarning(
-                    repo.path,
-                    `Branch '${status.current}' has no upstream`,
-                );
-                continue;
-            }
-
-            if (status.behind && status.ahead) {
-                const summary = (["ahead", "behind"] as const)
-                    .map((v) => `${pluralize("commit", status[v], true)} ${v}`)
-                    .join(" ");
-
-                doctorWarning(
-                    repo.path,
-                    `'${status.current}' has diverged from ${status.tracking}. ${summary}`,
-                );
-                continue;
-            }
-
-            for (const v of ["ahead", "behind"] as const) {
-                if (status[v]) {
-                    doctorWarning(
-                        repo.path,
-                        `'${status.current}' is ${pluralize("commit", status[v], true)} ${v} ${status.tracking}`,
-                    );
+            for (const issue of result.issues) {
+                reportIssue(result.path, issue);
+                if (issue.mode === "error") {
+                    process.exitCode = 1;
                 }
             }
-
-            doctorOkay(repo.path);
         }
 
         console.log(
             c.gray(
-                "Run `git swarm config refresh` if repositories have changed.",
+                "Run `git-swarm config refresh` if repositories have changed.",
             ),
         );
     });
