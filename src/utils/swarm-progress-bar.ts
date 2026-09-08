@@ -23,7 +23,12 @@ export class SwarmProgressBar {
 
     constructor(repos: GitRepository[]) {
         this.repos = repos;
-        this.width = Math.max(1, (process.stdout.columns || 80) - 2);
+        this.width = Math.max(
+            1,
+            (process.stdout.columns || 80) -
+                2 -
+                this.maxBuildSummaryStringLength(),
+        );
         this.repoStatus = new Map();
         repos.forEach((r) => {
             this.repoStatus.set(r, "pending");
@@ -44,13 +49,30 @@ export class SwarmProgressBar {
         return repoStatusLabels[this.repoStatus.get(repo) ?? "pending"];
     }
 
+    private buildSummaryStringFromValues(curr: number, total: number): string {
+        return `  ${curr}/${total}`;
+    }
+
+    private buildSummaryString(): string {
+        const done = [...this.repoStatus.values().filter((s) => s === "done")]
+            .length;
+        return this.buildSummaryStringFromValues(done, this.repos.length);
+    }
+
+    private maxBuildSummaryStringLength(): number {
+        return this.buildSummaryStringFromValues(
+            this.repos.length,
+            this.repos.length,
+        ).length;
+    }
+
     private buildProgress(): string {
         const chunks = chunk(this.repos, this.width);
         const lines = chunks.map((repos) => {
             return repos.map((r) => this.buildRepoStatusString(r)).join("");
         });
 
-        return `${lines.map((l) => `[${l}]`).join("\n")}\n`;
+        return `${lines.map((l) => `[${l}]`).join("\n")}${this.buildSummaryString()}\n`;
     }
 
     private render(): void {
