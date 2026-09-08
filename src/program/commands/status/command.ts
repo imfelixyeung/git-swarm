@@ -14,7 +14,7 @@ const getStatusSummary = (status: StatusResult) => {
     }
 
     if (status.ahead || status.behind) {
-        return c.bold(`↑ ${status.ahead} ↓ ${status.behind}`);
+        return c.yellow(`↑ ${status.ahead} ↓ ${status.behind}`);
     }
 
     if (status.detached) {

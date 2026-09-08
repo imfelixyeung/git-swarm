@@ -3,20 +3,21 @@ import pluralize from "pluralize-esm";
 import type { PullResult } from "simple-git";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
+import { c } from "@/utils/colour";
 import { catchError, reportRepoError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
 const getPullSummary = (result: PullResult) => {
     if (!result.files.length) {
-        return "already up-to-date";
+        return c.gray("already up-to-date");
     }
 
     const { insertions, deletions } = result.summary;
     const chunks = [
         `${pluralize("file", result.files.length, true)} changed`,
-        insertions ? `+${insertions}` : null,
-        deletions ? `-${deletions}` : null,
+        insertions ? c.green(`+${insertions}`) : null,
+        deletions ? c.red(`-${deletions}`) : null,
     ];
 
     return chunks.filter(Boolean).join(" ");

@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
+import { c } from "@/utils/colour";
 import { catchError, reportRepoError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
@@ -22,7 +23,7 @@ export const checkoutCommand = new Command("checkout")
                     return reportRepoError(path.relative, result);
                 }
 
-                return [path.relative, branch];
+                return [path.relative, c.green(branch)];
             },
             programOptions,
         );

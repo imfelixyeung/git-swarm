@@ -60,7 +60,7 @@ export const grepCommand = new Command("grep")
         for (const repo of repos) {
             console.log(c.bold(repo.repo));
             for (const { file, line, preview } of repo.lines) {
-                console.log(`  ${file}:${line}:${preview}`);
+                console.log(`  ${c.gray(`${file}:${line}`)}:${preview}`);
             }
             console.log();
         }
