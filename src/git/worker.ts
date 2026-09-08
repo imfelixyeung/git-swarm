@@ -4,11 +4,11 @@ import simpleGit from "simple-git";
 import { findGitRepositoryPaths, type GitRepository } from "@/git/discover";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { SwarmProgressBar } from "@/utils/swarm-progress-bar";
-import { type GitRepoFilters, repoMatchesFilter } from "./filter";
+import { type RepoQuery, repoMatchesFilter } from "./filter";
 
 type ForEachRepoOptions = {
     parallel: number;
-    where: GitRepoFilters;
+    where: RepoQuery;
     progress: boolean;
     skipConfig?: boolean;
 };

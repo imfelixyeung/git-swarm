@@ -1,125 +1,175 @@
-import pluralize from "pluralize-esm";
-import z from "zod";
-import { arrayHasOverlaps } from "@/utils/array-has-overlaps";
-import { catchError } from "@/utils/error";
-import { isNullish } from "@/utils/is-nullish";
+import { basename } from "node:path";
+import jexl from "jexl";
+import type { RemoteWithRefs } from "simple-git";
 import type { GitRepository } from "./discover";
-import { parseGitRemoteRefs } from "./remote";
+import { type GitProvider, parseGitRemoteRefs } from "./remote";
 
-const oneOrMoreStringsFilterSchema = z
-    .union([z.string(), z.array(z.string())])
-    .transform((v) => (Array.isArray(v) ? v : [v]))
-    .nullish();
+export interface RepoQueryContext {
+    name: string;
+    path: string;
 
-const booleanFilterSchema = z
-    .enum(["true", "false"])
-    .transform((v) => v === "true")
-    .nullish();
+    branch: string | null;
+    branches: string[];
+    localBranches: string[];
+    detached: boolean;
 
-const repoFiltersSchema = z.strictObject({
-    branch: oneOrMoreStringsFilterSchema,
-    clean: booleanFilterSchema,
-    "remote.ref": oneOrMoreStringsFilterSchema,
-    "remote.provider": oneOrMoreStringsFilterSchema,
-    "remote.owner": oneOrMoreStringsFilterSchema,
-    "remote.host": oneOrMoreStringsFilterSchema,
-    "remote.name": oneOrMoreStringsFilterSchema,
+    clean: boolean;
+    stagedFiles: number;
+    modifiedFiles: number;
+    untrackedFiles: number;
+
+    ahead: number;
+    behind: number;
+    hasUpstream: boolean;
+
+    remote: {
+        provider: "github" | "gitlab" | "bitbucket" | "other" | null;
+        host: string | null;
+        owner: string | null;
+        repo: string | null;
+    };
+}
+
+export type RepoQueryExpression = ReturnType<typeof jexl.createExpression>;
+
+export interface RepoQuery {
+    expression: RepoQueryExpression | null;
+}
+
+type StatusFields = Partial<RepoQueryContext> &
+    Pick<
+        RepoQueryContext,
+        | "branch"
+        | "detached"
+        | "clean"
+        | "stagedFiles"
+        | "modifiedFiles"
+        | "untrackedFiles"
+        | "ahead"
+        | "behind"
+        | "hasUpstream"
+    >;
+
+type RemoteFields = RepoQueryContext["remote"];
+
+const statusFieldKeys = new Set<keyof StatusFields>([
+    "branch",
+    "detached",
+    "clean",
+    "stagedFiles",
+    "modifiedFiles",
+    "untrackedFiles",
+    "ahead",
+    "behind",
+    "hasUpstream",
+]);
+
+const toStatusFields = (
+    status: Awaited<ReturnType<GitRepository["git"]["status"]>>,
+): StatusFields => ({
+    branch: status.current || null,
+    detached: status.detached,
+    clean: status.isClean(),
+    stagedFiles: status.staged.length,
+    modifiedFiles: status.modified.length,
+    untrackedFiles: status.not_added.length,
+    ahead: status.ahead,
+    behind: status.behind,
+    hasUpstream: Boolean(status.tracking),
 });
 
-export type GitRepoFilters = z.infer<typeof repoFiltersSchema>;
+const toRemoteFields = (remotes: RemoteWithRefs[]): RemoteFields => {
+    const parsed = parseGitRemoteRefs(remotes);
+    const primary =
+        parsed.find((remote) => remote.ref === "origin") ?? parsed[0];
+    if (primary === undefined) {
+        return { provider: null, host: null, owner: null, repo: null };
+    }
+    return {
+        provider: mapProvider(primary.provider),
+        host: primary.host || null,
+        owner: primary.owner || null,
+        repo: primary.name || null,
+    };
+};
 
-export const parseQueryString = (query: string) => {
-    const search = new URLSearchParams(query);
-    const rawSearch: { [key: string]: string | string[] } = {};
+const mapProvider = (provider: GitProvider): RemoteFields["provider"] =>
+    provider === "unknown" ? "other" : provider;
 
-    for (const [key, value] of search.entries()) {
-        if (key in rawSearch) {
-            if (rawSearch[key] === undefined) {
-                continue;
+export const compileQuery = (expression: string): RepoQuery => {
+    const trimmed = expression.trim();
+    if (trimmed.length === 0) {
+        return { expression: null };
+    }
+    const compiled = jexl.createExpression(trimmed);
+    compiled.compile();
+    return { expression: compiled };
+};
+
+const createRepoQueryContext = (repo: GitRepository): RepoQueryContext => {
+    let statusPromise: Promise<StatusFields> | null = null;
+    let allBranchesPromise: Promise<string[]> | null = null;
+    let localBranchesPromise: Promise<string[]> | null = null;
+    let remotePromise: Promise<RemoteFields> | null = null;
+
+    const status = () =>
+        (statusPromise ??= repo.git.status().then(toStatusFields));
+
+    const allBranches = () =>
+        (allBranchesPromise ??= repo.git
+            .branch(["-a"])
+            .then((summary) => summary.all));
+
+    const localBranches = () =>
+        (localBranchesPromise ??= repo.git
+            .branchLocal()
+            .then((summary) => summary.all));
+
+    const remotes = () =>
+        (remotePromise ??= repo.git.getRemotes(true).then(toRemoteFields));
+
+    return new Proxy({} as RepoQueryContext, {
+        get(_target, property) {
+            if (property === "name") {
+                return basename(repo.path.absolute);
             }
-            rawSearch[key] = Array.isArray(rawSearch[key])
-                ? [...rawSearch[key], value]
-                : [rawSearch[key], value];
-            continue;
-        }
-        rawSearch[key] = value;
-    }
-    const result = repoFiltersSchema.safeParse(rawSearch);
-    if (result.error) {
-        const issue = result.error.issues
-            .map((i) => {
-                if (i.code === "unrecognized_keys") {
-                    return `${pluralize("unknown filter", i.keys.length, true)}: ${i.keys
-                        .map((key) => `"${key}"`)
-                        .join(", ")}`;
-                }
-                return `${i.path}: ${i.message}`;
-            })
-            .join(". ");
-
-        throw new Error(`Invalid filter query. ${issue}`);
-    }
-    return result.data;
+            if (property === "path") {
+                return repo.path.relative;
+            }
+            if (property === "branches") {
+                return allBranches();
+            }
+            if (property === "localBranches") {
+                return localBranches();
+            }
+            if (property === "remote") {
+                return remotes();
+            }
+            if (
+                typeof property === "string" &&
+                statusFieldKeys.has(property as keyof StatusFields)
+            ) {
+                return status().then(
+                    (fields) => fields[property as keyof StatusFields],
+                );
+            }
+            return undefined;
+        },
+    });
 };
 
 export const repoMatchesFilter = async (
     repo: GitRepository,
-    filters: GitRepoFilters,
+    query: RepoQuery,
 ): Promise<boolean> => {
-    const remoteStringFilters = [
-        "ref",
-        "provider",
-        "owner",
-        "host",
-        "name",
-    ] as const;
-    const needsStatus = !isNullish(filters.branch) || !isNullish(filters.clean);
-    const needsRemotes = remoteStringFilters.some(
-        (key) => !isNullish(filters[`remote.${key}`]),
-    );
-
-    if (!needsStatus && !needsRemotes) {
+    if (query.expression === null) {
         return true;
     }
-
-    if (needsStatus) {
-        const status = await repo.git.status().catch(catchError);
-        if (status instanceof Error) {
-            return false;
-        }
-
-        if (!isNullish(filters.branch) && status.current) {
-            if (!arrayHasOverlaps(filters.branch, [status.current])) {
-                return false;
-            }
-        }
-        if (!isNullish(filters.clean)) {
-            const isClean = status.isClean();
-            if (filters.clean !== isClean) {
-                return false;
-            }
-        }
+    try {
+        return Boolean(
+            await query.expression.eval(createRepoQueryContext(repo)),
+        );
+    } catch {
+        return false;
     }
-
-    if (needsRemotes) {
-        const rawRemotes = await repo.git.getRemotes(true).catch(catchError);
-        if (rawRemotes instanceof Error) {
-            return false;
-        }
-
-        const remotes = parseGitRemoteRefs(rawRemotes);
-
-        for (const remoteKey of remoteStringFilters) {
-            const filterKey = `remote.${remoteKey}` as const;
-            if (!isNullish(filters[filterKey])) {
-                const needles = filters[filterKey];
-                const haystacks = remotes.map((r) => r[remoteKey]);
-                if (!arrayHasOverlaps(needles, haystacks)) {
-                    return false;
-                }
-            }
-        }
-    }
-
-    return true;
 };
