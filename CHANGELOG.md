@@ -1,5 +1,24 @@
 # @imfelixyeung/git-swarm
 
+## 0.2.0
+
+### Minor Changes
+
+- [#36](https://github.com/imfelixyeung/git-swarm/pull/36) [`c349870`](https://github.com/imfelixyeung/git-swarm/commit/c3498700ea3aa697b1d16ba1ef626eda2517ae23) Thanks [@imfelixyeung](https://github.com/imfelixyeung)! - Add `--all` option to the `log` command to show commits on all branches
+
+### Patch Changes
+
+- [#38](https://github.com/imfelixyeung/git-swarm/pull/38) [`ac06e12`](https://github.com/imfelixyeung/git-swarm/commit/ac06e12c8faed1cbd2b051404c5324a3a2f75e85) Thanks [@imfelixyeung](https://github.com/imfelixyeung)! - feat: colourise command output consistently
+
+  - Colorise `fetch` and `pull` summaries (additions green, deletions red, "already up-to-date" gray)
+  - Colorise `status` divergence, `checkout` result, `log` hash, and `grep` file:line prefix
+
+- [#34](https://github.com/imfelixyeung/git-swarm/pull/34) [`a7a6438`](https://github.com/imfelixyeung/git-swarm/commit/a7a6438fb035b43054506e1d0ddc5a921efd2401) Thanks [@imfelixyeung](https://github.com/imfelixyeung)! - Improve build configuration with minification and source maps
+
+- [#33](https://github.com/imfelixyeung/git-swarm/pull/33) [`5a70630`](https://github.com/imfelixyeung/git-swarm/commit/5a7063021e8b67315a3842864b7d7c268422ccac) Thanks [@imfelixyeung](https://github.com/imfelixyeung)! - feat(doctor): add doctor command for repository diagnostics
+
+- [#37](https://github.com/imfelixyeung/git-swarm/pull/37) [`e48c962`](https://github.com/imfelixyeung/git-swarm/commit/e48c9621f574b5e3321910c879de74d5f3aa4939) Thanks [@imfelixyeung](https://github.com/imfelixyeung)! - feat: add progress bar for visualising swarm progress
+
 ## 0.1.2
 
 ### Patch Changes
