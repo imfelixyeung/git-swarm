@@ -41,8 +41,7 @@ export class SwarmProgressBar {
     }
 
     private buildRepoStatusString(repo: GitRepository): string {
-        const status = this.repoStatus.get(repo);
-        return status ? repoStatusLabels[status] : " ";
+        return repoStatusLabels[this.repoStatus.get(repo) ?? "pending"];
     }
 
     private buildProgress(): string {
@@ -74,9 +73,9 @@ export class SwarmProgressBar {
         this.isFirstRender = true;
     }
 
-    log(message: string, level: "log" = "log") {
+    log(message: string): void {
         this.stop();
-        console[level](message);
+        console.log(message);
         this.start();
     }
 }

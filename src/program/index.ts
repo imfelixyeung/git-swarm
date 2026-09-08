@@ -14,11 +14,12 @@ import { pullCommand } from "./commands/pull/command";
 import { remoteCommand } from "./commands/remote/command";
 import { statusCommand } from "./commands/status/command";
 import { type ParallelOption, parallelOption } from "./options/parallel";
+import { type ProgressOption, progressOption } from "./options/progress";
 import { type WhereOption, whereOption } from "./options/where";
 
 export const program = new Command();
 
-export type ProgramOptions = ParallelOption & WhereOption;
+export type ProgramOptions = ParallelOption & ProgressOption & WhereOption;
 export const getProgramOptions = () => program.opts<ProgramOptions>();
 
 program
@@ -27,6 +28,7 @@ program
     .version(packageJson.version)
     .enablePositionalOptions()
     .addOption(parallelOption)
+    .addOption(progressOption)
     .addOption(whereOption)
     .addCommand(checkoutCommand)
     .addCommand(configCommand)

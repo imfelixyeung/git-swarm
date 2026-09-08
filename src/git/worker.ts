@@ -9,8 +9,8 @@ import { type GitRepoFilters, repoMatchesFilter } from "./filter";
 type ForEachRepoOptions = {
     parallel: number;
     where: GitRepoFilters;
+    progress: boolean;
     skipConfig?: boolean;
-    showProgress?: boolean;
 };
 
 export const forEachRepo = async <T>(
@@ -45,20 +45,31 @@ export const forEachRepo = async <T>(
     ).then(filterNotNull);
 
     const progress =
-        options.showProgress !== false ? new SwarmProgressBar(repos) : null;
+        options.progress && process.stdout.isTTY === true && repos.length > 0
+            ? new SwarmProgressBar(repos)
+            : null;
     progress?.start();
-    const promises = repos.map((repo) =>
-        limit(async () => {
-            progress?.update(repo, "started");
-            const result = await visit(
-                repo,
-                progress?.log ? (m: string) => progress.log(m) : console.log,
-            );
-            progress?.update(repo, "done");
-            return result;
-        }),
-    );
-    const results = await Promise.all(promises);
-    progress?.stop();
-    return results;
+    try {
+        const promises = repos.map((repo) =>
+            limit(async () => {
+                progress?.update(repo, "started");
+                try {
+                    const result = await visit(
+                        repo,
+                        progress
+                            ? (message) => progress.log(message)
+                            : console.log,
+                    );
+                    progress?.update(repo, "done");
+                    return result;
+                } catch (error) {
+                    progress?.update(repo, "error");
+                    throw error;
+                }
+            }),
+        );
+        return await Promise.all(promises);
+    } finally {
+        progress?.stop();
+    }
 };
