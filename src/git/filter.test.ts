@@ -1,5 +1,10 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { RemoteWithRefs, SimpleGit, StatusResult } from "simple-git";
+import type {
+    BranchSummary,
+    RemoteWithRefs,
+    SimpleGit,
+    StatusResult,
+} from "simple-git";
 import type { GitRepository } from "./discover";
 import { compileQuery, repoMatchesFilter } from "./filter";
 
@@ -32,12 +37,33 @@ const makeStatus = (overrides: StatusOverrides = {}): StatusResult =>
         ...overrides,
     }) as StatusResult;
 
+type BranchList = {
+    local: string[];
+    all: string[];
+};
+
+const defaultBranches: BranchList = {
+    local: ["main", "dev"],
+    all: ["main", "dev", "remotes/origin/main"],
+};
+
+const makeBranchSummary = (names: string[]): BranchSummary =>
+    ({
+        current: names[0] ?? "",
+        detached: false,
+        all: names,
+        branches: Object.fromEntries(names.map((name) => [name, { name }])),
+    }) as BranchSummary;
+
 const makeRepo = (
     statusOverrides: StatusOverrides = {},
     remotes: RemoteWithRefs[] = [],
+    branches: BranchList = defaultBranches,
 ): GitRepository => {
     const git = {
         status: mock(async () => makeStatus(statusOverrides)),
+        branch: mock(async () => makeBranchSummary(branches.all)),
+        branchLocal: mock(async () => makeBranchSummary(branches.local)),
         getRemotes: mock(async () => remotes),
     } as unknown as SimpleGit;
     return {
@@ -191,6 +217,83 @@ describe("repoMatchesFilter", () => {
         });
     });
 
+    describe("branches", () => {
+        test("matches a repo containing a branch", async () => {
+            const repo = makeRepo({}, [], {
+                local: ["main", "release/v2", "feature/x"],
+                all: ["main", "release/v2", "feature/x", "remotes/origin/main"],
+            });
+            expect(await matches(repo, '"release/v2" in branches')).toBe(true);
+            expect(await matches(repo, '"bugfix" in branches')).toBe(false);
+            expect(await matches(repo, '!("bugfix" in branches)')).toBe(true);
+        });
+
+        test("includes remote-tracking branches", async () => {
+            const repo = makeRepo();
+            expect(await matches(repo, '"main" in branches')).toBe(true);
+            expect(
+                await matches(repo, '"remotes/origin/main" in branches'),
+            ).toBe(true);
+        });
+
+        test("indexes into the branch list", async () => {
+            const repo = makeRepo();
+            expect(await matches(repo, 'branches[0] == "main"')).toBe(true);
+            expect(await matches(repo, 'branches[1] == "dev"')).toBe(true);
+            expect(await matches(repo, 'branches[3] == "dev"')).toBe(false);
+        });
+
+        test("exposes an empty list for repos without branches", async () => {
+            const repo = makeRepo({}, [], { local: [], all: [] });
+            expect(await matches(repo, '"main" in branches')).toBe(false);
+            expect(await matches(repo, '!("main" in branches)')).toBe(true);
+        });
+    });
+
+    describe("localBranches", () => {
+        test("matches a repo containing a local branch", async () => {
+            const repo = makeRepo({}, [], {
+                local: ["main", "release/v2"],
+                all: ["main", "release/v2", "remotes/origin/main"],
+            });
+            expect(await matches(repo, '"release/v2" in localBranches')).toBe(
+                true,
+            );
+            expect(await matches(repo, '"bugfix" in localBranches')).toBe(
+                false,
+            );
+            expect(await matches(repo, '!("bugfix" in localBranches)')).toBe(
+                true,
+            );
+        });
+
+        test("excludes remote-tracking branches", async () => {
+            const repo = makeRepo();
+            expect(
+                await matches(repo, '"remotes/origin/main" in localBranches'),
+            ).toBe(false);
+        });
+
+        test("indexes into the local branch list", async () => {
+            const repo = makeRepo();
+            expect(await matches(repo, 'localBranches[0] == "main"')).toBe(
+                true,
+            );
+            expect(await matches(repo, 'localBranches[1] == "dev"')).toBe(true);
+        });
+
+        test("exposes an empty list for repos without local branches", async () => {
+            const repo = makeRepo({}, [], {
+                local: [],
+                all: ["remotes/origin/main"],
+            });
+            expect(await matches(repo, '"main" in localBranches')).toBe(false);
+            expect(await matches(repo, '!("main" in localBranches)')).toBe(
+                true,
+            );
+        });
+    });
+
     describe("upstream", () => {
         test("reports repos with an upstream", async () => {
             const repo = makeRepo({ tracking: "origin/main" });
@@ -306,6 +409,26 @@ describe("repoMatchesFilter", () => {
             expect(repo.git.status).toHaveBeenCalledTimes(0);
             expect(repo.git.getRemotes).toHaveBeenCalledTimes(1);
         });
+
+        test("fetches all branches only when referenced", async () => {
+            const repo = makeRepo();
+            expect(
+                await matches(repo, '"remotes/origin/main" in branches'),
+            ).toBe(true);
+            expect(repo.git.branch).toHaveBeenCalledTimes(1);
+            expect(repo.git.branchLocal).toHaveBeenCalledTimes(0);
+            expect(repo.git.status).toHaveBeenCalledTimes(0);
+            expect(repo.git.getRemotes).toHaveBeenCalledTimes(0);
+        });
+
+        test("fetches local branches only when referenced", async () => {
+            const repo = makeRepo();
+            expect(await matches(repo, '"dev" in localBranches')).toBe(true);
+            expect(repo.git.branchLocal).toHaveBeenCalledTimes(1);
+            expect(repo.git.branch).toHaveBeenCalledTimes(0);
+            expect(repo.git.status).toHaveBeenCalledTimes(0);
+            expect(repo.git.getRemotes).toHaveBeenCalledTimes(0);
+        });
     });
 
     describe("error handling", () => {
@@ -325,6 +448,22 @@ describe("repoMatchesFilter", () => {
             expect(await matches(repo, 'remote.host == "github.com"')).toBe(
                 false,
             );
+        });
+
+        test("returns false when reading all branches fails", async () => {
+            const repo = makeRepo();
+            repo.git.branch = (async () => {
+                throw new Error("boom");
+            }) as unknown as SimpleGit["branch"];
+            expect(await matches(repo, '"main" in branches')).toBe(false);
+        });
+
+        test("returns false when reading local branches fails", async () => {
+            const repo = makeRepo();
+            repo.git.branchLocal = (async () => {
+                throw new Error("boom");
+            }) as unknown as SimpleGit["branchLocal"];
+            expect(await matches(repo, '"main" in localBranches')).toBe(false);
         });
     });
 });

@@ -9,6 +9,8 @@ export interface RepoQueryContext {
     path: string;
 
     branch: string | null;
+    branches: string[];
+    localBranches: string[];
     detached: boolean;
 
     clean: boolean;
@@ -106,10 +108,22 @@ export const compileQuery = (expression: string): RepoQuery => {
 
 const createRepoQueryContext = (repo: GitRepository): RepoQueryContext => {
     let statusPromise: Promise<StatusFields> | null = null;
+    let allBranchesPromise: Promise<string[]> | null = null;
+    let localBranchesPromise: Promise<string[]> | null = null;
     let remotePromise: Promise<RemoteFields> | null = null;
 
     const status = () =>
         (statusPromise ??= repo.git.status().then(toStatusFields));
+
+    const allBranches = () =>
+        (allBranchesPromise ??= repo.git
+            .branch(["-a"])
+            .then((summary) => summary.all));
+
+    const localBranches = () =>
+        (localBranchesPromise ??= repo.git
+            .branchLocal()
+            .then((summary) => summary.all));
 
     const remotes = () =>
         (remotePromise ??= repo.git.getRemotes(true).then(toRemoteFields));
@@ -121,6 +135,12 @@ const createRepoQueryContext = (repo: GitRepository): RepoQueryContext => {
             }
             if (property === "path") {
                 return repo.path.relative;
+            }
+            if (property === "branches") {
+                return allBranches();
+            }
+            if (property === "localBranches") {
+                return localBranches();
             }
             if (property === "remote") {
                 return remotes();

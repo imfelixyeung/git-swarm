@@ -79,6 +79,12 @@ git swarm --where 'ahead >= 2' push
 # Only repos on a feature branch, not touching main
 git swarm --where '"feature/" in branch && branch != "main"' status
 
+# Only repos that have a branch named feature/cool
+git swarm --where '"feature/cool" in branches' status
+
+# Only repos with a tracking branch for origin/main
+git swarm --where '"remotes/origin/main" in branches' status
+
 # Only repos whose remote is hosted under github.com/imfelixyeung
 git swarm --where 'remote.host == "github.com" && remote.owner == "imfelixyeung"' pull
 ```
@@ -91,6 +97,8 @@ Available context fields:
 | `name` | Repository directory name |
 | `path` | Repository path relative to the swarm root |
 | `branch` | Current branch name, or `null` when detached |
+| `branches` | Names of all branches, including remote-tracking branches |
+| `localBranches` | Names of all local branches |
 | `detached` | Whether HEAD is detached |
 | `clean` | Whether the working tree is clean |
 | `stagedFiles` | Number of staged files |
@@ -104,9 +112,9 @@ Available context fields:
 | `remote.owner` | Repository owner |
 | `remote.repo` | Repository name |
 
-The `remote.*` fields describe the `origin` remote when present, otherwise the first remote. Fields that require `git status` (branch, divergence, worktree counts, ...) and the `remote.*` fields are only fetched when the expression references them.
+The `remote.*` fields describe the `origin` remote when present, otherwise the first remote. Fields that require `git status` (branch, divergence, worktree counts, ...), the branch lists, and the `remote.*` fields are only fetched when the expression references them.
 
-Use JEXL operators: `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, and `in` for substring checks, for example `'"issue" in branch'`.
+Use JEXL operators: `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, and `in` for substring checks on strings (for example `'"issue" in branch'`) or membership checks on arrays (for example `'"feature/cool" in branches'`).
 
 ### Parallel Execution
 
