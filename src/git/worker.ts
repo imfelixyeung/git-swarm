@@ -3,17 +3,19 @@ import pLimit from "p-limit";
 import simpleGit from "simple-git";
 import { findGitRepositoryPaths, type GitRepository } from "@/git/discover";
 import { filterNotNull } from "@/utils/filter-not-null";
+import { SwarmProgressBar } from "@/utils/swarm-progress-bar";
 import { type GitRepoFilters, repoMatchesFilter } from "./filter";
 
 type ForEachRepoOptions = {
     parallel: number;
     where: GitRepoFilters;
+    progress: boolean;
     skipConfig?: boolean;
 };
 
 export const forEachRepo = async <T>(
     root: string,
-    visit: (repo: GitRepository) => Promise<T>,
+    visit: (repo: GitRepository, log: (message: string) => void) => Promise<T>,
     options: ForEachRepoOptions,
 ): Promise<T[]> => {
     const limit = pLimit(options.parallel);
@@ -42,7 +44,32 @@ export const forEachRepo = async <T>(
         ),
     ).then(filterNotNull);
 
-    const promises = repos.map((repo) => limit(() => visit(repo)));
-    const results = await Promise.all(promises);
-    return results;
+    const progress =
+        options.progress && process.stdout.isTTY === true && repos.length > 0
+            ? new SwarmProgressBar(repos)
+            : null;
+    progress?.start();
+    try {
+        const promises = repos.map((repo) =>
+            limit(async () => {
+                progress?.update(repo, "started");
+                try {
+                    const result = await visit(
+                        repo,
+                        progress
+                            ? (message) => progress.log(message)
+                            : console.log,
+                    );
+                    progress?.update(repo, "done");
+                    return result;
+                } catch (error) {
+                    progress?.update(repo, "error");
+                    throw error;
+                }
+            }),
+        );
+        return await Promise.all(promises);
+    } finally {
+        progress?.stop();
+    }
 };
