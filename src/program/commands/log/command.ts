@@ -13,6 +13,7 @@ type LogOptions = {
     before: string | null;
     exactDate: boolean;
     author: boolean;
+    reverse: boolean;
 };
 
 type LogRow = {
@@ -38,6 +39,10 @@ export const logCommand = new Command("log")
         "show the exact commit date instead of a relative time",
     )
     .option("--author", "show the author of each commit")
+    .option(
+        "-r, --reverse",
+        "show commits in reverse chronological order (newest at bottom)",
+    )
     .action(async (rev: string | null, options: LogOptions) => {
         const programOptions = getProgramOptions();
         const root = process.cwd();
@@ -46,6 +51,7 @@ export const logCommand = new Command("log")
             ...(rev ? [rev] : []),
             ...(options.after ? [`--after=${options.after}`] : []),
             ...(options.before ? [`--before=${options.before}`] : []),
+            ...(options.reverse ? ["--reverse"] : []),
         ];
         const log = await forEachRepo(
             root,
@@ -89,7 +95,9 @@ export const logCommand = new Command("log")
             }
         }
 
-        rows.sort((a, b) => b.time - a.time);
+        rows.sort((a, b) =>
+            options.reverse ? a.time - b.time : b.time - a.time,
+        );
 
         const head = [
             "path",

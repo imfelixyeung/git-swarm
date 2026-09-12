@@ -43,7 +43,7 @@ git swarm checkout feature/my-branch
 | `fetch [--prune]` | Fetch from remotes across all repos |
 | `checkout <branch>` | Switch to a branch across all repos |
 | `diff [--cached] [--stat]` | Show file changes across all repos |
-| `log [rev] [--after <date>] [--before <date>] [--exact-date] [--author]` | Show commit logs across all repos |
+| `log [rev] [--after <date>] [--before <date>] [--exact-date] [--author] [-r]` | Show commit logs across all repos |
 | `grep <pattern>` | Run `git grep` across all repos |
 | `find-branch <branch>` | Search all repos for a branch by name |
 | `remote` | List remotes for each repo |
