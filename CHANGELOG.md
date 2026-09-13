@@ -1,5 +1,11 @@
 # @imfelixyeung/git-swarm
 
+## 0.4.0
+
+### Minor Changes
+
+- [#41](https://github.com/imfelixyeung/git-swarm/pull/41) [`cba41e0`](https://github.com/imfelixyeung/git-swarm/commit/cba41e0616ea22796f813223a9f4dd38797c6a60) Thanks [@imfelixyeung](https://github.com/imfelixyeung)! - Add `-r, --reverse` flag to `log` to show commits in reverse chronological order (newest at bottom)
+
 ## 0.3.0
 
 ### Minor Changes
