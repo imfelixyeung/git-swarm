@@ -3,7 +3,7 @@ import type { ParsedGitUrl } from "@/git/remote";
 import { parseGitRemoteRefs } from "@/git/remote";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
-import { catchError, reportRepoError } from "@/utils/error";
+import { catchError, formatRepoError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
@@ -70,10 +70,11 @@ export const remoteCommand = new Command("remote")
         });
         const results = await forEachRepo(
             root,
-            async ({ path, git }) => {
+            async ({ path, git }, log) => {
                 const remotes = await git.getRemotes(true).catch(catchError);
                 if (remotes instanceof Error) {
-                    return reportRepoError(path.relative, remotes);
+                    log(formatRepoError(path.relative, remotes));
+                    return null;
                 }
                 const parsed = parseGitRemoteRefs(remotes);
                 if (parsed.length === 0) {

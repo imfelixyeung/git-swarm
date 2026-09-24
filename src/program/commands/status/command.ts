@@ -4,7 +4,7 @@ import type { StatusResult } from "simple-git";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
-import { catchError, reportRepoError } from "@/utils/error";
+import { catchError, formatRepoError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
@@ -44,10 +44,11 @@ export const statusCommand = new Command("status")
         });
         const results = await forEachRepo(
             root,
-            async ({ path, git }) => {
+            async ({ path, git }, log) => {
                 const status = await git.status().catch(catchError);
                 if (status instanceof Error) {
-                    return reportRepoError(path.relative, status);
+                    log(formatRepoError(path.relative, status));
+                    return null;
                 }
                 return [
                     path.relative,
