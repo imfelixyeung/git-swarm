@@ -3,7 +3,7 @@ import type { DiffResult } from "simple-git";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
-import { catchError, reportRepoError } from "@/utils/error";
+import { catchError, formatRepoError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
@@ -47,13 +47,14 @@ export const diffCommand = new Command("diff")
         let failed = false;
         const results = await forEachRepo(
             root,
-            async ({ path, git }) => {
+            async ({ path, git }, log) => {
                 const summary = await git
                     .diffSummary(rev ? [rev, ...diffArgs] : diffArgs)
                     .catch(catchError);
                 if (summary instanceof Error) {
                     failed = true;
-                    return reportRepoError(path.relative, summary);
+                    log(formatRepoError(path.relative, summary));
+                    return null;
                 }
 
                 if (summary.changed === 0) {

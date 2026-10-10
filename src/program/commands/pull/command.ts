@@ -4,7 +4,7 @@ import type { PullResult } from "simple-git";
 import { forEachRepo } from "@/git/worker";
 import { getProgramOptions } from "@/program";
 import { c } from "@/utils/colour";
-import { catchError, reportRepoError } from "@/utils/error";
+import { catchError, formatRepoError } from "@/utils/error";
 import { filterNotNull } from "@/utils/filter-not-null";
 import { CliTable } from "@/utils/table";
 
@@ -34,13 +34,14 @@ export const pullCommand = new Command("pull")
         let failed = false;
         const results = await forEachRepo(
             root,
-            async ({ path, git }) => {
+            async ({ path, git }, log) => {
                 const result = await git
                     .pull(remote ?? undefined, branch ?? undefined)
                     .catch(catchError);
                 if (result instanceof Error) {
                     failed = true;
-                    return reportRepoError(path.relative, result);
+                    log(formatRepoError(path.relative, result));
+                    return null;
                 }
 
                 return [path.relative, getPullSummary(result)];
