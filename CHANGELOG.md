@@ -1,5 +1,11 @@
 # @imfelixyeung/git-swarm
 
+## 0.4.1
+
+### Patch Changes
+
+- [#44](https://github.com/imfelixyeung/git-swarm/pull/44) [`56657a6`](https://github.com/imfelixyeung/git-swarm/commit/56657a6db5206a1e5483a8337e2b5fbdef4e9c67) Thanks [@imfelixyeung](https://github.com/imfelixyeung)! - fix: use progress logging to avoid error logs overlapping with progress bar
+
 ## 0.4.0
 
 ### Minor Changes
